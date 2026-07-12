@@ -43,7 +43,7 @@
         </el-col>
         <el-col :span="24">
           <el-form-item label="备注">
-            <el-input v-model="form.remark" type="textarea" maxlength="100" show-word-limit :rows="3" />
+            <el-input v-model="form.remark" type="textarea" maxlength="100" show-word-limit :rows="3" placeholder="选填" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
@@ -64,20 +64,65 @@ import PageCard from '@/components/PageCard.vue'
 import CheckoutSteps from '@/components/CheckoutSteps.vue'
 
 const router = useRouter()
-const elderOptions = ['高启强', '安欣', '陈书婷']
-const elderMap = {
-  '高启强': { elderIdcard: '230203197702221029', elderPhone: '13898988888', nursingLevel: '特级护理等级', bedInfo: '101床位', contractName: '高启强长住合同.pdf', consultant: '顾廷烨', caregivers: '盛长柏、盛明兰', feeStart: '2048-10-10', feeEnd: '2049-10-10' },
-  '安欣': { elderIdcard: '230203199701221029', elderPhone: '13898987777', nursingLevel: '重度失能等级', bedInfo: '102床位', contractName: '安欣试住合同.pdf', consultant: '顾廷烨', caregivers: '盛明兰', feeStart: '2048-10-10', feeEnd: '2049-10-10' },
-  '陈书婷': { elderIdcard: '230203197811221029', elderPhone: '13678987777', nursingLevel: '中度失能等级', bedInfo: '103床位', contractName: '陈书婷合同.pdf', consultant: '顾廷烨', caregivers: '盛如兰', feeStart: '2048-10-10', feeEnd: '2049-10-10' }
-}
+const elderOptions = ref([])
+const elderMap = reactive({})
 
 const form = reactive({
-  elderName: '', elderIdcard: '', elderPhone: '', feeStart: '', feeEnd: '',
-  nursingLevel: '', bedInfo: '', contractName: '', consultant: '', caregivers: '',
-  checkoutDate: '', reason: '', remark: '', applicant: '顾廷烨', creator: '顾廷烨'
+  elderName: '',
+  elderIdcard: '',
+  elderPhone: '',
+  feeStart: '',
+  feeEnd: '',
+  nursingLevel: '',
+  bedInfo: '',
+  contractName: '',
+  consultant: '',
+  caregivers: '',
+  checkoutDate: '',
+  reason: '',
+  remark: '',
+  applicant: '',
+  creator: ''
 })
 
-const feePeriod = computed(() => form.feeStart && form.feeEnd ? `${form.feeStart} —— ${form.feeEnd}` : '')
+const feePeriod = computed(() => form.feeStart && form.feeEnd ? `${form.feeStart} — ${form.feeEnd}` : '')
+
+onMounted(loadElders)
+
+function loadElders() {
+  axios.post('/checkin/page', { pageNum: 1, pageSize: 100 }).then(res => {
+    if (res.data.code === 200) {
+      const list = (res.data.data || []).filter(c => c.flowStatus === '已完成')
+      elderOptions.value = list.map(c => c.elderName).filter(Boolean)
+      list.forEach(c => {
+        elderMap[c.elderName] = {
+          elderIdcard: c.elderIdcard,
+          elderPhone: c.elderPhone,
+          nursingLevel: c.nursingLevel,
+          bedInfo: c.bedNo,
+          contractName: c.contractName,
+          consultant: c.applicant || c.creator,
+          caregivers: '',
+          feeStart: c.periodStart,
+          feeEnd: c.periodEnd
+        }
+      })
+    }
+  }).catch(() => {
+    elderOptions.value = ['高启强']
+    elderMap['高启强'] = {
+      elderIdcard: '230203197702221029',
+      elderPhone: '13898988888',
+      nursingLevel: '特级护理等级',
+      bedInfo: '101床位',
+      contractName: '高启强长租合同.pdf',
+      consultant: '顾廷烨',
+      caregivers: '盛长柏、盛明兰',
+      feeStart: '2048-10-10',
+      feeEnd: '2049-10-10'
+    }
+  })
+}
 
 function onElderChange(name) {
   const d = elderMap[name]
@@ -91,8 +136,8 @@ function submit() {
   }
   axios.post('/checkout/save', form).then(res => {
     if (res.data.code === 200) {
-      ElMessage.success('提交成功，已进入申请审批')
-      router.push({ path: '/CheckoutDetail', query: { id: res.data.data, step: 2, mode: 'form' } })
+      ElMessage.success('提交成功，请在退住办理中继续处理')
+      router.push('/CheckoutProcess')
     } else {
       ElMessage.error(res.data.msg || '提交失败')
     }

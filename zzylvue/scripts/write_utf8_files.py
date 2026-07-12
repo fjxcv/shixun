@@ -1,4 +1,15 @@
-<template>
+# -*- coding: utf-8 -*-
+"""Write vue files as UTF-8 to fix GBK encoding on Windows."""
+from pathlib import Path
+
+TARGETS = [
+    Path(r"D:\vsc-maven\zzyl-project\zzylvue\src\views"),
+    Path(r"D:\vsc-maven\zzylvue\src\views"),
+]
+
+CHECKIN_APPLY = Path(__file__).resolve().parents[1] / "src" / "views" / "CheckinApply.vue"
+
+MAIN_INDEX = r'''<template>
   <el-container class="main-layout">
     <el-header class="top-header" height="56px">
       <div class="logo-area">
@@ -234,3 +245,32 @@ function handleLogout() {
   background: #f5f7fa;
 }
 </style>
+'''
+
+
+def write_utf8(path: Path, content: str):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8", newline="\n")
+    raw = path.read_bytes()
+    assert raw.decode("utf-8")
+    print("OK", path)
+
+
+def main():
+    # CheckinApply: read as GBK from broken file, or use project copy
+    src = CHECKIN_APPLY
+    if src.exists():
+        try:
+            checkin_text = src.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            checkin_text = src.read_bytes().decode("gbk")
+    else:
+        raise SystemExit("CheckinApply source missing")
+
+    for base in TARGETS:
+        write_utf8(base / "CheckinApply.vue", checkin_text)
+        write_utf8(base / "MainIndex.vue", MAIN_INDEX)
+
+
+if __name__ == "__main__":
+    main()

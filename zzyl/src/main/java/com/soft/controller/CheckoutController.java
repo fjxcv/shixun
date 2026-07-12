@@ -3,7 +3,6 @@ package com.soft.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.soft.common.Result;
-import com.soft.config.DemoDataFill;
 import com.soft.dto.PageQueryDto;
 import com.soft.mapper.CheckoutMapper;
 import com.soft.pojo.Checkout;
@@ -35,12 +34,8 @@ public class CheckoutController {
     public Result<Checkout> detail(@RequestParam("id") Long id) {
         Checkout c = checkoutMapper.selectById(id);
         if (c == null) {
-            c = checkoutMapper.selectOne(new LambdaQueryWrapper<Checkout>().last("limit 1"));
+            return Result.fail("\u9000\u4f4f\u5355\u4e0d\u5b58\u5728");
         }
-        if (c == null) {
-            c = DemoDataFill.demoCheckout(id);
-        }
-        DemoDataFill.fillCheckout(c);
         return Result.ok(c);
     }
 

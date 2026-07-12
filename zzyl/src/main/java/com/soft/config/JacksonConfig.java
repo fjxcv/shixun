@@ -1,5 +1,6 @@
 package com.soft.config;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
@@ -30,6 +31,7 @@ public class JacksonConfig {
             builder.serializers(new LocalDateSerializer(dateFormatter));
             builder.deserializers(new LocalDateDeserializer(dateFormatter));
             builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            builder.featuresToEnable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);
         };
     }
 }

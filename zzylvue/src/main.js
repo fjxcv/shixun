@@ -6,9 +6,17 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import router from './router'
 import axios from 'axios'
 
+// 开发环境忽略 ResizeObserver 循环告警（Element Plus 表格/步骤条等常见）
+const resizeObserverErr = /ResizeObserver loop/i
+window.addEventListener('error', (e) => {
+  if (resizeObserverErr.test(e.message)) {
+    e.stopImmediatePropagation()
+  }
+})
+
 axios.defaults.withCredentials = true
-axios.defaults.baseURL = 'http://localhost:8080'
-axios.defaults.timeout = 5000
+axios.defaults.baseURL = ''
+axios.defaults.timeout = 15000
 
 function formatDateFields(data) {
   if (data == null) return data

@@ -22,6 +22,7 @@
       <el-table-column prop="elderIdcard" label="老人身份证号" min-width="170" />
       <el-table-column prop="bedNo" label="入住床位" width="100" />
       <el-table-column prop="checkinDate" label="入住日期" width="120" />
+      <el-table-column prop="flowStatus" label="流程状态" width="100" />
       <el-table-column prop="creator" label="创建人" width="90" />
       <el-table-column prop="createTime" label="创建时间" min-width="160" />
       <el-table-column label="操作" width="80" fixed="right">
@@ -68,6 +69,6 @@ function resetQuery() {
 }
 
 function view(row) {
-  router.push({ path: '/CheckinDetail', query: { id: row.id, step: row.step || 1, mode: 'form' } })
+  router.push({ path: '/CheckinDetail', query: { id: row.id, step: row.step || 2, mode: 'form' } })
 }
 </script>

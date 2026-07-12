@@ -2,53 +2,40 @@
   <PageCard>
     <template #filter>
       <el-form :inline="true" :model="query">
-        <el-form-item label="µ¥¾İ±àºÅ">
-          <el-input v-model="query.docNo" placeholder="ÇëÊäÈë" clearable />
-        </el-form-item>
-        <el-form-item label="ÀÏÈËĞÕÃû">
-          <el-input v-model="query.elderName" placeholder="ÇëÊäÈë" clearable />
-        </el-form-item>
-        <el-form-item label="ÀÏÈËÉí·İÖ¤ºÅ">
-          <el-input v-model="query.elderIdcard" placeholder="ÇëÊäÈë" clearable />
-        </el-form-item>
+        <el-form-item label="å•æ®ç¼–å·"><el-input v-model="query.docNo" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
+        <el-form-item label="è€äººå§“å"><el-input v-model="query.elderName" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
+        <el-form-item label="è€äººèº«ä»½è¯å·"><el-input v-model="query.elderIdcard" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
         <el-form-item>
-          <el-button @click="resetQuery">ÖØÖÃ</el-button>
-          <el-button type="primary" @click="loadList(1)">ËÑË÷</el-button>
+          <el-button @click="resetQuery">é‡ç½®</el-button>
+          <el-button type="primary" @click="loadList(1)">æœç´¢</el-button>
         </el-form-item>
       </el-form>
     </template>
-
     <template #toolbar>
       <span />
-      <el-button type="primary" @click="$router.push('/CheckoutApply')">·¢ÆğÍË×¡ÉêÇë</el-button>
+      <el-button type="primary" @click="$router.push('/CheckoutApply')">å‘èµ·é€€ä½ç”³è¯·</el-button>
     </template>
-
     <el-table :data="tableData" border stripe>
-      <el-table-column type="index" label="ĞòºÅ" width="60" />
-      <el-table-column prop="docNo" label="µ¥¾İ±àºÅ" min-width="160" />
-      <el-table-column prop="elderName" label="ÀÏÈËĞÕÃû" width="100" />
-      <el-table-column prop="elderIdcard" label="ÀÏÈËÉí·İÖ¤ºÅ" min-width="170" />
-      <el-table-column prop="checkoutDate" label="ÍË×¡ÈÕÆÚ" width="120" />
-      <el-table-column prop="creator" label="´´½¨ÈË" width="90" />
-      <el-table-column prop="createTime" label="´´½¨Ê±¼ä" min-width="160" />
-      <el-table-column label="²Ù×÷" width="80" fixed="right">
+      <el-table-column type="index" label="åºå·" width="60" />
+      <el-table-column prop="docNo" label="å•æ®ç¼–å·" min-width="160" />
+      <el-table-column prop="elderName" label="è€äººå§“å" width="100" />
+      <el-table-column prop="elderIdcard" label="è€äººèº«ä»½è¯å·" min-width="170" />
+      <el-table-column prop="checkoutDate" label="é€€ä½æ—¥æœŸ" width="120" />
+      <el-table-column prop="flowStatus" label="æµç¨‹çŠ¶æ€" width="100" />
+      <el-table-column prop="stepStatus" label="æ­¥éª¤çŠ¶æ€" width="100" />
+      <el-table-column prop="creator" label="åˆ›å»ºäºº" width="90" />
+      <el-table-column prop="createTime" label="åˆ›å»ºæ—¶é—´" min-width="160" />
+      <el-table-column label="æ“ä½œ" width="80" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="viewDetail(row)">²é¿´</el-button>
+          <el-button link type="primary" @click="view(row)">æŸ¥çœ‹</el-button>
         </template>
       </el-table-column>
     </el-table>
-
     <template #footer>
-      <span>¹² {{ total }} ÏîÊı¾İ</span>
-      <el-pagination
-        background
-        layout="sizes, prev, pager, next, jumper"
-        :total="total"
-        v-model:current-page="query.pageNum"
-        v-model:page-size="query.pageSize"
-        @current-change="loadList"
-        @size-change="loadList(1)"
-      />
+      <span>å…± {{ total }} é¡¹æ•°æ®</span>
+      <el-pagination background layout="sizes, prev, pager, next, jumper" :total="total"
+        v-model:current-page="query.pageNum" v-model:page-size="query.pageSize"
+        @current-change="loadList" @size-change="loadList(1)" />
     </template>
   </PageCard>
 </template>
@@ -77,13 +64,12 @@ function loadList(page) {
 }
 
 function resetQuery() {
-  query.docNo = ''
-  query.elderName = ''
-  query.elderIdcard = ''
+  Object.assign(query, { docNo: '', elderName: '', elderIdcard: '' })
   loadList(1)
 }
 
-function viewDetail(row) {
-  router.push({ path: '/CheckoutDetail', query: { id: row.id, step: row.step || 1, mode: 'form' } })
+function view(row) {
+  const s = row.step || 2
+  router.push({ path: '/CheckoutDetail', query: { id: row.id, step: s } })
 }
 </script>

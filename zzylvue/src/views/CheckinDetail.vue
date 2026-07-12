@@ -8,11 +8,6 @@
       </div>
       <OperationTimeline class="detail-side" action-prefix="入住" />
     </div>
-    <div v-else-if="isApprovalPending" class="status-panel">
-      <el-result icon="info" title="审批中" sub-title="稍等，入住申请正在审批中，若该申请单长时间未处理，请联系审批角色！" />
-      <OperationTimeline action-prefix="入住" />
-      <div class="form-actions"><el-button @click="goBack">返回</el-button></div>
-    </div>
     <div v-else class="detail-layout">
       <div class="detail-main">
         <InfoSectionsCheckin :data="detail" />
@@ -20,7 +15,7 @@
         <div v-if="step === 2" class="assess-panel">
           <h4>入住评估</h4>
           <el-tabs v-model="assessTab" :before-leave="beforeAssessTabLeave">
-            <el-tab-pane label="健康评估" name="health" :disabled="false">
+            <el-tab-pane label="健康评估" name="health">
               <el-form label-width="120px" class="assess-form">
                 <el-form-item label="疾病情况" required>
                   <el-input v-model="assess.disease" type="textarea" :rows="3" placeholder="如：冠心病、糖尿病" maxlength="200" show-word-limit />
@@ -84,8 +79,8 @@
           <h4>选择入住配置</h4>
           <el-form label-width="120px">
             <el-form-item label="入住期限" required><el-date-picker v-model="periodRange" type="daterange" value-format="YYYY-MM-DD" /></el-form-item>
-            <el-form-item label="护理等级" required><el-input v-model="detail.nursingLevel" /></el-form-item>
-            <el-form-item label="入住床位"><el-input v-model="detail.bedNo" /></el-form-item>
+            <el-form-item label="护理等级" required><el-input v-model="detail.nursingLevel" placeholder="如：中度失能等级" /></el-form-item>
+            <el-form-item label="入住床位"><el-input v-model="detail.bedNo" placeholder="如：1011" /></el-form-item>
             <el-form-item label="押金(元)" required><el-input-number v-model="detail.deposit" :min="0" :precision="2" /></el-form-item>
             <el-form-item label="护理费用" required><el-input-number v-model="detail.nursingFee" :min="0" :precision="2" /></el-form-item>
             <el-form-item label="床位费用" required><el-input-number v-model="detail.bedFee" :min="0" :precision="2" /></el-form-item>
@@ -107,7 +102,7 @@
         </div>
         <div v-if="step !== 2" class="form-actions">
           <el-button @click="goBack">返回</el-button>
-          <el-button v-if="canSubmit" type="primary" @click="submitCurrent">{{ step === 5 ? '提交' : '保存' }}</el-button>
+          <el-button type="primary" @click="submitCurrent">{{ step === 5 ? '提交' : '保存' }}</el-button>
         </div>
         <div v-else class="form-actions">
           <el-button @click="goBack">返回</el-button>
@@ -133,18 +128,14 @@ const router = useRouter()
 const detail = reactive({})
 const uploads = reactive({ photo: '', idFront: '', idBack: '' })
 const assessTab = ref('health')
-const assess = reactive({ disease: '', medicine: '', risk: '', ability: '', score: 30 })
-const assessDone = reactive({ health: false, ability: false, report: false })
+const assess = reactive({ disease: '', medicine: '', risk: '', ability: '', score: null })
+const assessDone = reactive({ health: false, ability: false })
 const approvalResult = ref('审批通过')
 const approvalComment = ref('')
 const periodRange = ref([])
-const mode = computed(() => route.query.mode || 'form')
-const step = ref(1)
+const step = ref(2)
 const stepIndex = computed(() => Math.max(0, step.value - 1))
 const readonlyView = computed(() => detail.flowStatus === '已完成' || detail.flowStatus === '已关闭')
-// 仅审批节点才显示「审批中」；评估/配置/签约必须可填
-const isApprovalPending = computed(() => mode.value === 'pending' && step.value === 3)
-const canSubmit = computed(() => !readonlyView.value && !isApprovalPending.value)
 
 onMounted(loadDetail)
 
@@ -153,46 +144,19 @@ function parseExtra(raw) {
   try {
     const obj = typeof raw === 'string' ? JSON.parse(raw) : raw
     if (!obj || typeof obj !== 'object') return
-    // 新结构 { uploads, assess }
-    if (obj.assess || obj.uploads) {
-      if (obj.uploads) Object.assign(uploads, obj.uploads)
-      if (obj.assess) {
-        Object.assign(assess, {
-          disease: obj.assess.disease || '',
-          medicine: obj.assess.medicine || '',
-          risk: obj.assess.risk || '',
-          ability: obj.assess.ability || '',
-          score: obj.assess.score != null ? obj.assess.score : 30
-        })
-        if (assess.disease && assess.medicine && assess.risk) assessDone.health = true
-        if (assess.ability) assessDone.ability = true
-      }
-      // 兼容旧上传结构直接挂在根上
-      if (obj.photo || obj.idFront || obj.idBack) {
-        uploads.photo = obj.photo || uploads.photo
-        uploads.idFront = obj.idFront || uploads.idFront
-        uploads.idBack = obj.idBack || uploads.idBack
-      }
-      return
-    }
-    // 旧结构：可能是纯上传，或纯评估字段
-    if (obj.photo || obj.idFront || obj.idBack) {
-      uploads.photo = obj.photo || ''
-      uploads.idFront = obj.idFront || ''
-      uploads.idBack = obj.idBack || ''
-    }
-    if (obj.disease || obj.medicine || obj.ability) {
+    if (obj.uploads) Object.assign(uploads, obj.uploads)
+    if (obj.assess) {
       Object.assign(assess, {
-        disease: obj.disease || '',
-        medicine: obj.medicine || '',
-        risk: obj.risk || '',
-        ability: obj.ability || '',
-        score: obj.score != null ? obj.score : 30
+        disease: obj.assess.disease || '',
+        medicine: obj.assess.medicine || '',
+        risk: obj.assess.risk || '',
+        ability: obj.assess.ability || '',
+        score: obj.assess.score != null ? obj.assess.score : null
       })
       if (assess.disease && assess.medicine && assess.risk) assessDone.health = true
-      if (assess.ability) assessDone.ability = true
+      if (assess.ability && assess.score != null) assessDone.ability = true
     }
-  } catch (e) { /* ignore */ }
+  } catch { /* ignore */ }
 }
 
 function buildExtraJson() {
@@ -205,7 +169,7 @@ function loadDetail() {
   axios.get('/checkin/detail', { params: { id } }).then(res => {
     if (res.data.code === 200) {
       Object.assign(detail, res.data.data || {})
-      step.value = Number(detail.step) || 1
+      step.value = Number(route.query.step) || Number(detail.step) || 2
       if (detail.periodStart && detail.periodEnd) {
         periodRange.value = [detail.periodStart, detail.periodEnd]
       }
@@ -319,8 +283,6 @@ function submitCurrent() {
     contractFile: detail.contractFile,
     contractNo: detail.contractNo || ('HT' + Date.now()),
     signDate: detail.signDate,
-    flowStatus: step.value === 5 ? '已完成' : '申请中',
-    stepStatus: step.value === 5 ? '已完成' : '进行中',
     extraJson: buildExtraJson()
   }
   if (periodRange.value && periodRange.value.length === 2) {
@@ -350,7 +312,6 @@ function submitCurrent() {
 .detail-main { flex: 1; min-width: 0; }
 .detail-side { width: 280px; flex-shrink: 0; }
 .form-actions { margin-top: 24px; text-align: center; }
-.status-panel { max-width: 720px; margin: 0 auto; }
 .assess-panel { margin-top: 16px; }
 .assess-form { max-width: 640px; margin-top: 12px; }
 .tab-actions { margin-top: 16px; display: flex; gap: 12px; }

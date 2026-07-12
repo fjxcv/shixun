@@ -3,7 +3,6 @@ package com.soft.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.soft.common.Result;
-import com.soft.config.DemoDataFill;
 import com.soft.dto.PageQueryDto;
 import com.soft.mapper.CheckinMapper;
 import com.soft.pojo.Checkin;
@@ -34,12 +33,8 @@ public class CheckinController {
     public Result<Checkin> detail(@RequestParam("id") Long id) {
         Checkin c = checkinMapper.selectById(id);
         if (c == null) {
-            c = checkinMapper.selectOne(new LambdaQueryWrapper<Checkin>().last("limit 1"));
+            return Result.fail("\u5165\u4f4f\u5355\u4e0d\u5b58\u5728");
         }
-        if (c == null) {
-            c = DemoDataFill.demoCheckin(id);
-        }
-        DemoDataFill.fillCheckin(c);
         return Result.ok(c);
     }
 

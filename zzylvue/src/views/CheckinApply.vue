@@ -1,13 +1,13 @@
 <template>
   <PageCard>
     <CheckinSteps :active="0" />
-    <h3 class="section-title">补全申请资料</h3>
+    <h3 class="section-title">补足申请资料</h3>
     <el-tabs v-model="activeTab">
       <el-tab-pane label="基本信息" name="basic">
         <el-form :model="form" label-width="120px" class="apply-form">
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="老人姓名" required><el-input v-model="form.elderName" maxlength="10" show-word-limit /></el-form-item>
+              <el-form-item label="老人姓名" required><el-input v-model="form.elderName" maxlength="10" show-word-limit placeholder="请输入" /></el-form-item>
               <el-form-item label="性别">
                 <el-radio-group v-model="form.gender">
                   <el-radio label="男">男</el-radio>
@@ -15,12 +15,12 @@
                 </el-radio-group>
               </el-form-item>
               <el-form-item label="出生日期"><el-date-picker v-model="form.birthDate" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
-              <el-form-item label="联系方式" required><el-input v-model="form.elderPhone" maxlength="11" show-word-limit /></el-form-item>
+              <el-form-item label="联系方式" required><el-input v-model="form.elderPhone" maxlength="11" show-word-limit placeholder="请输入" /></el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="老人身份证号" required><el-input v-model="form.elderIdcard" maxlength="18" show-word-limit @blur="fillFromIdcard" /></el-form-item>
+              <el-form-item label="老人身份证号" required><el-input v-model="form.elderIdcard" maxlength="18" show-word-limit placeholder="请输入" @blur="fillFromIdcard" /></el-form-item>
               <el-form-item label="年龄"><el-input-number v-model="form.age" :min="0" :max="150" style="width:100%" /></el-form-item>
-              <el-form-item label="家庭住址" required><el-input v-model="form.address" type="textarea" maxlength="100" show-word-limit :rows="3" /></el-form-item>
+              <el-form-item label="家庭住址" required><el-input v-model="form.address" type="textarea" maxlength="100" show-word-limit :rows="3" placeholder="请输入" /></el-form-item>
             </el-col>
           </el-row>
         </el-form>
@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
@@ -94,15 +94,19 @@ const router = useRouter()
 const activeTab = ref('basic')
 const basicDone = ref(false)
 const familyDone = ref(false)
-const familyList = ref([
-  { name: '范闲', phone: '13800138001', relation: '子女' },
-  { name: '', phone: '', relation: '' }
-])
+const familyList = ref([{ name: '', phone: '', relation: '' }])
 const uploads = reactive({ photo: '', idFront: '', idBack: '' })
 const form = reactive({
-  elderName: '高启强', elderIdcard: '230203197702221029', elderPhone: '13898988888',
-  gender: '男', birthDate: '1977-02-22', age: 71, address: '24号楼3单元401室',
-  applicant: '顾廷烨', creator: '顾廷烨', checkinDate: '2048-10-10'
+  elderName: '',
+  elderIdcard: '',
+  elderPhone: '',
+  gender: '',
+  birthDate: '',
+  age: null,
+  address: '',
+  applicant: '',
+  creator: '',
+  checkinDate: ''
 })
 
 function addFamily() { familyList.value.push({ name: '', phone: '', relation: '' }) }
@@ -154,6 +158,19 @@ function saveTab() {
   }
 }
 
+function buildSubmitPayload() {
+  const payload = {
+    ...form,
+    familyJson: JSON.stringify(familyList.value.filter(f => f.name)),
+    extraJson: JSON.stringify({ uploads: { ...uploads }, assess: {} })
+  }
+  ;['birthDate', 'checkinDate', 'gender', 'applicant', 'creator'].forEach(key => {
+    if (!payload[key]) delete payload[key]
+  })
+  if (payload.age == null) delete payload.age
+  return payload
+}
+
 function submit() {
   if (!basicDone.value || !familyDone.value) {
     ElMessage.warning('请先完成前面的资料填写')
@@ -163,19 +180,17 @@ function submit() {
     ElMessage.warning('请上传完整证件资料')
     return
   }
-  const payload = {
-    ...form,
-    familyJson: JSON.stringify(familyList.value.filter(f => f.name)),
-    extraJson: JSON.stringify({ uploads: { ...uploads }, assess: {} })
-  }
-  axios.post('/checkin/save', payload).then(res => {
+  axios.post('/checkin/save', buildSubmitPayload()).then(res => {
     if (res.data.code === 200) {
-      ElMessage.success('提交成功，已进入入住评估')
-      router.push({ path: '/CheckinDetail', query: { id: res.data.data, step: 2 } })
+      ElMessage.success('提交成功，请在入住办理中继续处理')
+      router.push('/CheckinProcess')
     } else {
       ElMessage.error(res.data.msg || '提交失败')
     }
-  }).catch(() => ElMessage.error('提交失败'))
+  }).catch(err => {
+    const msg = err.response?.data?.msg || err.response?.data?.error || err.message
+    ElMessage.error(msg ? `提交失败：${msg}` : '提交失败，请确认后端已启动')
+  })
 }
 </script>
 
