@@ -1,42 +1,42 @@
 package com.soft;
 
-import com.aliyun.oss.ClientBuilderConfiguration;
-import com.aliyun.oss.OSS;
-import com.aliyun.oss.OSSClientBuilder;
-import com.aliyun.oss.common.auth.CredentialsProviderFactory;
-import com.aliyun.oss.common.auth.EnvironmentVariableCredentialsProvider;
-import com.aliyun.oss.common.comm.SignVersion;
 import com.soft.utils.AliyunOssUtils;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.util.StringUtils;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.InputStream;
 
 @SpringBootTest
 class ZzylApplicationTests {
 
-
     @Autowired
     private AliyunOssUtils aliyunOssUtils;
+
+    @Value("${aliyun.oss.accessKeyId:}")
+    private String accessKeyId;
+
+    @Value("${aliyun.oss.accessKeySecret:}")
+    private String accessKeySecret;
+
     @Test
-    public void updateFileUtil(){
+    public void updateFileUtil() throws IOException {
+        Assumptions.assumeTrue(
+                StringUtils.hasText(accessKeyId) && StringUtils.hasText(accessKeySecret),
+                () -> "skip OSS upload test: aliyun.oss.accessKeyId / accessKeySecret not configured"
+        );
 
-        //将本地需要上传的文件封装为对象
-        File file=new File("D:/zzyl.png");
-        //将本地文件对象，转化为字节数组
-        try {
-            byte[] bytes = Files.readAllBytes(file.toPath());
-            String s = aliyunOssUtils.uploadFile("3.png", bytes);
-            System.out.println("url="+s);
-        } catch (IOException e) {
-            e.printStackTrace();
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("test-upload.png")) {
+            if (inputStream == null) {
+                throw new IllegalStateException("test-upload.png not found in test resources");
+            }
+            byte[] bytes = inputStream.readAllBytes();
+            String url = aliyunOssUtils.uploadFile("3.png", bytes);
+            System.out.println("url=" + url);
         }
-
-
-
     }
 }

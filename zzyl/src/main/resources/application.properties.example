@@ -15,9 +15,11 @@ mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl
 mybatis-plus.mapper-locations=classpath:/mapper/*.xml
 mybatis-plus.configuration.map-underscore-to-camel-case=true
 
-aliyun.oss.endpoint=https://oss-cn-chengdu.aliyuncs.com
+aliyun.oss.endpoint=https://oss-cn-beijing.aliyuncs.com
 aliyun.oss.bucketName=your-bucket
-aliyun.oss.region=cn-chengdu
+aliyun.oss.region=cn-beijing
+aliyun.oss.accessKeyId=your-access-key-id
+aliyun.oss.accessKeySecret=your-access-key-secret
 
 # apikey
 spring.ai.dashscope.api-key=your_dashscope_api_key
