@@ -1,6 +1,7 @@
 package com.soft.pojo;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -34,6 +35,8 @@ public class Checkin {
     private BigDecimal insurancePay;
     private BigDecimal govSubsidy;
     private Integer step;
+    @TableField(exist = false)
+    private Integer currentStep;
     private String stepStatus;
     private String flowStatus;
     private String approvalResult;
@@ -49,6 +52,15 @@ public class Checkin {
     private String applicant;
     private LocalDateTime applyTime;
     private LocalDateTime finishTime;
+    private String ethnicity;
+    private String politicalStatus;
+    private String religion;
+    private String maritalStatus;
+    private String educationLevel;
+    private String incomeSource;
+    private String medicalInsurance;
+    private String hobbies;
+    private String medicalInsuranceNo;
     private String creator;
     private LocalDateTime createTime;
 }

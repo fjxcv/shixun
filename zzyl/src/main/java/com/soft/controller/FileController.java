@@ -18,6 +18,7 @@ public class FileController {
 
     private static final Set<String> ALLOWED_EXT = Set.of(".png", ".jpg", ".jpeg", ".pdf");
     private static final long MAX_SIZE = 2L * 1024 * 1024;
+    private static final long MAX_REPORT_SIZE = 60L * 1024 * 1024;
 
     @Value("${server.port:8080}")
     private int serverPort;
@@ -49,6 +50,36 @@ public class FileController {
         } catch (IOException ex) {
             ex.printStackTrace();
             return Result.fail("\u4e0a\u4f20\u5931\u8d25\uff1a" + ex.getMessage());
+        }
+    }
+
+    @PostMapping("/upload/report")
+    public Result<String> reportUpload(@RequestParam("mf") MultipartFile mf) {
+        if (mf == null || mf.isEmpty()) {
+            return Result.fail("请选择文件");
+        }
+        if (mf.getSize() > MAX_REPORT_SIZE) {
+            return Result.fail("文件大小不能超过60M");
+        }
+        String oldName = mf.getOriginalFilename();
+        String ext = ".pdf";
+        if (oldName != null && oldName.contains(".")) {
+            ext = oldName.substring(oldName.lastIndexOf('.')).toLowerCase(Locale.ROOT);
+        }
+        if (!".pdf".equals(ext)) {
+            return Result.fail("仅支持 PDF 文件");
+        }
+        try {
+            Path dir = uploadDir();
+            Files.createDirectories(dir);
+            String name = UUID.randomUUID() + ext;
+            Path target = dir.resolve(name);
+            mf.transferTo(target.toFile());
+            String url = "http://localhost:" + serverPort + "/uploads/" + name;
+            return Result.ok(url);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            return Result.fail("上传失败：" + ex.getMessage());
         }
     }
 

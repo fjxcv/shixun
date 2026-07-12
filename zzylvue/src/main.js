@@ -3,6 +3,7 @@ import App from './App.vue'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import router from './router'
 import axios from 'axios'
 
@@ -33,6 +34,21 @@ axios.interceptors.response.use(res => {
     res.data.data = formatDateFields(res.data.data)
   }
   return res
+}, err => {
+  const status = err.response?.status
+  const msg = err.response?.data?.msg
+  if (msg) {
+    ElMessage.error(msg)
+  } else if (status === 500) {
+    ElMessage.error('服务器内部错误，请稍后重试')
+  } else if (status === 404) {
+    ElMessage.error('请求的资源不存在')
+  } else if (status === 403) {
+    ElMessage.error('没有访问权限')
+  } else if (!err.response) {
+    ElMessage.error('网络异常，请检查网络连接')
+  }
+  return Promise.reject(err)
 })
 
 const app = createApp(App)

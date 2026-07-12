@@ -36,6 +36,15 @@ CREATE TABLE IF NOT EXISTS t_checkin (
     applicant VARCHAR(50),
     apply_time DATETIME,
     finish_time DATETIME,
+    ethnicity VARCHAR(20),
+    political_status VARCHAR(20),
+    religion VARCHAR(20),
+    marital_status VARCHAR(20),
+    education_level VARCHAR(10),
+    income_source VARCHAR(20),
+    medical_insurance VARCHAR(30),
+    hobbies VARCHAR(20),
+    medical_insurance_no VARCHAR(19),
     creator VARCHAR(50),
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );

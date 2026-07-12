@@ -49,6 +49,15 @@ public class DataInitRunner implements CommandLineRunner {
         tryAddColumn("t_checkout", "flow_status", "VARCHAR(20) DEFAULT NULL");
         tryAddColumn("t_checkout", "approval_result", "VARCHAR(20) DEFAULT NULL");
         tryAddColumn("t_checkout", "approval_comment", "VARCHAR(500) DEFAULT NULL");
+        tryAddColumn("t_checkin", "ethnicity", "VARCHAR(20) DEFAULT NULL");
+        tryAddColumn("t_checkin", "political_status", "VARCHAR(20) DEFAULT NULL");
+        tryAddColumn("t_checkin", "religion", "VARCHAR(20) DEFAULT NULL");
+        tryAddColumn("t_checkin", "marital_status", "VARCHAR(20) DEFAULT NULL");
+        tryAddColumn("t_checkin", "education_level", "VARCHAR(10) DEFAULT NULL");
+        tryAddColumn("t_checkin", "income_source", "VARCHAR(20) DEFAULT NULL");
+        tryAddColumn("t_checkin", "medical_insurance", "VARCHAR(30) DEFAULT NULL");
+        tryAddColumn("t_checkin", "hobbies", "VARCHAR(20) DEFAULT NULL");
+        tryAddColumn("t_checkin", "medical_insurance_no", "VARCHAR(19) DEFAULT NULL");
     }
 
     private void tryAddColumn(String table, String column, String definition) {
@@ -117,7 +126,7 @@ public class DataInitRunner implements CommandLineRunner {
         String[] flowStatus = {"\u7533\u8bf7\u4e2d", "\u5df2\u5b8c\u6210", "\u5df2\u5173\u95ed"};
         for (int i = 0; i < 10; i++) {
             Checkin ci = new Checkin();
-            ci.setDocNo("RZ204810101500000" + (i + 1));
+            ci.setDocNo("RZ" + System.currentTimeMillis() + String.format("%04d", i));
             ci.setElderName(names[i % names.length]);
             ci.setElderIdcard("23020319970122102" + i);
             ci.setElderPhone("1389898888" + i);
@@ -126,9 +135,10 @@ public class DataInitRunner implements CommandLineRunner {
             ci.setAge(71);
             ci.setAddress("24\u53f7\u697c3\u5355\u5143401\u5ba4");
             ci.setBedNo("101" + (i % 4 + 1));
-            ci.setCheckinDate(LocalDate.of(2048, 10, 10));
-            ci.setPeriodStart(LocalDate.of(2048, 10, 10));
-            ci.setPeriodEnd(LocalDate.of(2049, 10, 9));
+            LocalDate cd = LocalDate.now().minusDays(i * 5);
+            ci.setCheckinDate(cd);
+            ci.setPeriodStart(cd);
+            ci.setPeriodEnd(cd.plusYears(1));
             ci.setNursingLevel("\u4e2d\u5ea6\u5931\u80fd\u7b49\u7ea7");
             ci.setDeposit(new java.math.BigDecimal("3000"));
             ci.setNursingFee(new java.math.BigDecimal("1500"));
@@ -137,11 +147,11 @@ public class DataInitRunner implements CommandLineRunner {
             ci.setFlowStatus(flowStatus[i % 3]);
             ci.setStepStatus(ci.getFlowStatus());
             if ("\u5df2\u5b8c\u6210".equals(ci.getFlowStatus())) {
-                ci.setFinishTime(LocalDateTime.of(2048, 10, 20, 15, 0));
+                ci.setFinishTime(LocalDateTime.now().minusDays(i));
             }
-            ci.setContractNo("HT204810101500000" + (i + 1));
+            ci.setContractNo("HT" + System.currentTimeMillis() + String.format("%05d", i));
             ci.setApplicant("\u987e\u5ef7\u70ec");
-            ci.setApplyTime(LocalDateTime.of(2048, 10, 10, 15, 0).minusDays(i));
+            ci.setApplyTime(LocalDateTime.now().minusDays(i * 5));
             ci.setCreator("\u987e\u5ef7\u70ec");
             ci.setCreateTime(LocalDateTime.now().minusDays(i));
             checkinMapper.insert(ci);
@@ -313,7 +323,7 @@ public class DataInitRunner implements CommandLineRunner {
         String[] flowStatus = {"\u7533\u8bf7\u4e2d", "\u5df2\u5b8c\u6210", "\u5df2\u5173\u95ed"};
         for (int i = 0; i < 10; i++) {
             Checkin ci = new Checkin();
-            ci.setDocNo("RZ204810101500000" + (i + 1));
+            ci.setDocNo("RZ" + System.currentTimeMillis() + String.format("%04d", i + 10));
             ci.setElderName(names[i % names.length]);
             ci.setElderIdcard("23020319970122102" + i);
             ci.setElderPhone("1389898888" + i);
@@ -322,9 +332,10 @@ public class DataInitRunner implements CommandLineRunner {
             ci.setAge(71);
             ci.setAddress("24\u53f7\u697c3\u5355\u5143401\u5ba4");
             ci.setBedNo("101" + (i % 4 + 1));
-            ci.setCheckinDate(LocalDate.of(2048, 10, 10));
-            ci.setPeriodStart(LocalDate.of(2048, 10, 10));
-            ci.setPeriodEnd(LocalDate.of(2049, 10, 9));
+            LocalDate cd = LocalDate.now().minusDays(i * 5);
+            ci.setCheckinDate(cd);
+            ci.setPeriodStart(cd);
+            ci.setPeriodEnd(cd.plusYears(1));
             ci.setNursingLevel("\u4e2d\u5ea6\u5931\u80fd\u7b49\u7ea7");
             ci.setDeposit(new java.math.BigDecimal("3000"));
             ci.setNursingFee(new java.math.BigDecimal("1500"));
@@ -333,12 +344,12 @@ public class DataInitRunner implements CommandLineRunner {
             ci.setFlowStatus(flowStatus[i % 3]);
             ci.setStepStatus(ci.getFlowStatus());
             if ("\u5df2\u5b8c\u6210".equals(ci.getFlowStatus())) {
-                ci.setFinishTime(LocalDateTime.of(2048, 10, 20, 15, 0));
+                ci.setFinishTime(LocalDateTime.now().minusDays(i));
             }
-            ci.setContractNo("HT204810101500000" + (i + 1));
-            ci.setApplicant("\u987e\u5ef7\u70ec");
-            ci.setApplyTime(LocalDateTime.of(2048, 10, 10, 15, 0).minusDays(i));
-            ci.setCreator("\u987e\u5ef7\u70ec");
+            ci.setContractNo("HT" + System.currentTimeMillis() + String.format("%05d", i + 10));
+            ci.setApplicant("\u987e\u5ef7\u70e8");
+            ci.setApplyTime(LocalDateTime.now().minusDays(i * 5));
+            ci.setCreator("\u987e\u5ef7\u70e8");
             ci.setCreateTime(LocalDateTime.now().minusDays(i));
             checkinMapper.insert(ci);
         }
