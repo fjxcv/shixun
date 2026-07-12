@@ -1,0 +1,24 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend (zzylvue)
+zzylvue/node_modules/
+zzylvue/dist/
+
+# Backend (zzyl)
+zzyl/target/
+zzyl/uploads/
+
+# Local secrets (use application.properties.example as template)
+zzyl/src/main/resources/application.properties
+
+# Logs
+*.log
