@@ -44,6 +44,9 @@
 </template>
 
 <script setup>
+/**
+ * 注册页：提交 /register（RegisterDto），成功后引导登录。
+ */
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'

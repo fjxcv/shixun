@@ -17,6 +17,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+/**
+ * 预约登记接口。
+ * <p>
+ * 管理参观/探访预约的分页、保存、到访确认与取消。
+ * 「已到访」会将预约置为已完成，并自动写入一条来访登记记录。
+ */
 @RestController
 @RequestMapping("/reservation")
 public class ReservationController {
@@ -25,6 +31,12 @@ public class ReservationController {
     @Autowired private ReservationMapper reservationMapper;
     @Autowired private VisitMapper visitMapper;
 
+    /**
+     * 预约分页列表。
+     * 可按类型、访客姓名/手机、状态筛选；类型为「全部」时不过滤类型。
+     *
+     * @param q 分页与筛选条件
+     */
     @PostMapping("/page")
     public Result<List<Reservation>> page(@RequestBody PageQueryDto q) {
         Page<Reservation> page = reservationMapper.selectPage(
@@ -32,26 +44,37 @@ public class ReservationController {
         return Result.ok(page.getRecords(), page.getTotal());
     }
 
+    /**
+     * 新增或更新预约。
+     * 缺省状态为「待上门」，创建时间缺省为当前时间。
+     */
     @PostMapping("/save")
     public Result<String> save(@RequestBody Reservation r) {
-        if (r.getStatus() == null) r.setStatus("\u5f85\u4e0a\u95e8");
+        if (r.getStatus() == null) r.setStatus("待上门");
         if (r.getCreateTime() == null) r.setCreateTime(LocalDateTime.now());
         if (r.getId() == null) reservationMapper.insert(r);
         else reservationMapper.updateById(r);
         return Result.ok("saved");
     }
 
+    /**
+     * 确认到访：预约改为「已完成」，并同步生成来访记录。
+     * 需传入预约 id 与 visitTime（yyyy-MM-dd HH:mm:ss）；
+     * 来访类型由预约类型映射（参观预约→参观来访，探访预约→探访来访）。
+     *
+     * @param dto 到访确认参数
+     */
     @PostMapping("/arrive")
     public Result<String> arrive(@RequestBody ReservationArriveDto dto) {
-        if (dto.getId() == null) return Result.fail("\u9884\u7ea6\u4e0d\u5b58\u5728");
-        if (!StringUtils.hasText(dto.getVisitTime())) return Result.fail("\u8bf7\u9009\u62e9\u6765\u8bbf\u65f6\u95f4");
+        if (dto.getId() == null) return Result.fail("预约不存在");
+        if (!StringUtils.hasText(dto.getVisitTime())) return Result.fail("请选择来访时间");
 
         Reservation existing = reservationMapper.selectById(dto.getId());
-        if (existing == null) return Result.fail("\u9884\u7ea6\u4e0d\u5b58\u5728");
+        if (existing == null) return Result.fail("预约不存在");
 
         Reservation r = new Reservation();
         r.setId(dto.getId());
-        r.setStatus("\u5df2\u5b8c\u6210");
+        r.setStatus("已完成");
         reservationMapper.updateById(r);
 
         Visit v = new Visit();
@@ -67,35 +90,42 @@ public class ReservationController {
         return Result.ok("ok");
     }
 
+    /**
+     * 取消预约。
+     * 已取消或已完成的预约不可再取消。
+     *
+     * @param id 预约 ID
+     */
     @GetMapping("/cancel")
     public Result<String> cancel(@RequestParam("id") Long id) {
-        if (id == null) return Result.fail("\u9884\u7ea6ID\u4e0d\u80fd\u4e3a\u7a7a");
+        if (id == null) return Result.fail("预约ID不能为空");
         Reservation existing = reservationMapper.selectById(id);
-        if (existing == null) return Result.fail("\u9884\u7ea6\u4e0d\u5b58\u5728");
+        if (existing == null) return Result.fail("预约不存在");
         String status = existing.getStatus() == null ? "" : existing.getStatus().trim();
-        if ("\u5df2\u53d6\u6d88".equals(status) || status.contains("\u53d6\u6d88")) {
-            return Result.fail("\u8be5\u9884\u7ea6\u5df2\u53d6\u6d88");
+        if ("已取消".equals(status) || status.contains("取消")) {
+            return Result.fail("该预约已取消");
         }
-        if ("\u5df2\u5b8c\u6210".equals(status) || status.contains("\u5b8c\u6210")) {
-            return Result.fail("\u5df2\u5b8c\u6210\u7684\u9884\u7ea6\u4e0d\u53ef\u53d6\u6d88");
+        if ("已完成".equals(status) || status.contains("完成")) {
+            return Result.fail("已完成的预约不可取消");
         }
         Reservation r = new Reservation();
         r.setId(id);
-        r.setStatus("\u5df2\u53d6\u6d88");
+        r.setStatus("已取消");
         int rows = reservationMapper.updateById(r);
-        if (rows <= 0) return Result.fail("\u53d6\u6d88\u5931\u8d25");
+        if (rows <= 0) return Result.fail("取消失败");
         return Result.ok("ok");
     }
 
+    /** 预约类型 → 来访类型映射。 */
     private String mapVisitType(String reservationType) {
-        if ("\u53c2\u89c2\u9884\u7ea6".equals(reservationType)) return "\u53c2\u89c2\u6765\u8bbf";
-        if ("\u63a2\u8bbf\u9884\u7ea6".equals(reservationType)) return "\u63a2\u8bbf\u6765\u8bbf";
+        if ("参观预约".equals(reservationType)) return "参观来访";
+        if ("探访预约".equals(reservationType)) return "探访来访";
         return reservationType;
     }
 
     private LambdaQueryWrapper<Reservation> buildWrapper(PageQueryDto q) {
         LambdaQueryWrapper<Reservation> w = new LambdaQueryWrapper<>();
-        if (StringUtils.hasText(q.getType()) && !"\u5168\u90e8".equals(q.getType())) w.eq(Reservation::getType, q.getType());
+        if (StringUtils.hasText(q.getType()) && !"全部".equals(q.getType())) w.eq(Reservation::getType, q.getType());
         if (StringUtils.hasText(q.getVisitorName())) w.like(Reservation::getVisitorName, q.getVisitorName());
         if (StringUtils.hasText(q.getVisitorPhone())) w.like(Reservation::getVisitorPhone, q.getVisitorPhone());
         if (StringUtils.hasText(q.getStatus())) w.eq(Reservation::getStatus, q.getStatus());
@@ -103,4 +133,3 @@ public class ReservationController {
         return w;
     }
 }
-

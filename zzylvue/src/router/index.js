@@ -31,10 +31,7 @@ const routes = [
       { path: '/LeaveManage', component: () => import('@/views/LeaveManage.vue') },
       { path: '/LeaveDetail', component: () => import('@/views/LeaveDetail.vue') },
       { path: '/MyTodo', component: () => import('@/views/MyTodo.vue') },
-      { path: '/MyApply', component: () => import('@/views/MyApply.vue') },
-      { path: '/NursingItem', component: () => import('@/views/NursingItem.vue') },
-      { path: '/NursingPlain', component: () => import('@/views/NursingPlain.vue') },
-      { path: '/NursingLevel', component: () => import('@/views/NursingLevel.vue') }
+      { path: '/MyApply', component: () => import('@/views/MyApply.vue') }
     ]
   }
 ]

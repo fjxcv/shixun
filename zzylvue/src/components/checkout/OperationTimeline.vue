@@ -24,6 +24,10 @@
 </template>
 
 <script setup>
+/**
+ * 退住操作时间线：根据 step / flowStatus 渲染各节点完成态与当前节点。
+ * 「待审批」等文案与后端步骤语义对应。
+ */
 import { computed } from 'vue'
 
 const props = defineProps({

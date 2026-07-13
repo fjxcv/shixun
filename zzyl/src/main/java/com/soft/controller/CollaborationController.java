@@ -24,6 +24,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 协同工作接口：聚合入住/退住/请假三类单据，供「我的申请」「我的待办」使用。
+ * <p>
+ * 统一流程状态（flowStatus）：申请中、已完成、已关闭。
+ * 请假业务有独立 status（待审批/请假中/已返回等），通过 mapLeaveFlow 映射后再过滤。
+ */
 @RestController
 @RequestMapping("/collab")
 public class CollaborationController {
@@ -35,8 +41,8 @@ public class CollaborationController {
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /**
-     * \u6211\u7684\u7533\u8bf7\uff1a\u4ec5\u8fd4\u56de\u5f53\u524d\u767b\u5f55\u7528\u6237\u53d1\u8d77\u7684\u5355\u636e\uff08\u4ee5 Session realname \u4e3a\u51c6\uff09\u3002
-     * \u524d\u7aef\u4f20\u5165\u7684 applicant \u4ec5\u4f5c\u4e8c\u6b21\u7b5b\u9009\uff0c\u4e0d\u80fd\u5192\u5145\u8eab\u4efd\u3002
+     * 我的申请：仅返回当前登录用户发起的单据（以 Session realname 为准）。
+     * 前端传入的 applicant 仅作二次筛选，不能冒充身份。
      */
     @PostMapping("/apply/page")
     public Result<List<WorkflowItemDto>> applyPage(@RequestBody PageQueryDto q, HttpSession session) {
@@ -44,7 +50,7 @@ public class CollaborationController {
         if (!StringUtils.hasText(owner)) {
             return pageSlice(new ArrayList<>(), q);
         }
-        // \u4fdd\u7559\u524d\u7aef\u300c\u7533\u8bf7\u4eba\u300d\u641c\u7d22\u8bcd\uff0c\u4f46\u4e0d\u7528\u5b83\u505a\u8eab\u4efd\u8303\u56f4
+        // 保留前端「申请人」搜索词，但不用它做身份范围
         String searchApplicant = q.getApplicant();
         q.setApplicant(null);
         List<WorkflowItemDto> all = loadAll(q, owner);
@@ -54,30 +60,31 @@ public class CollaborationController {
                     .filter(i -> i.getApplicant() != null && i.getApplicant().contains(kw))
                     .collect(Collectors.toList());
         }
-        if (StringUtils.hasText(q.getStatus()) && !"\u5168\u90e8".equals(q.getStatus())) {
+        if (StringUtils.hasText(q.getStatus()) && !"全部".equals(q.getStatus())) {
             all = all.stream().filter(i -> q.getStatus().equals(i.getFlowStatus())).collect(Collectors.toList());
         }
         return pageSlice(all, q);
     }
 
-    /** \u6211\u7684\u5f85\u529e\uff1a\u5168\u5458\u5171\u4eab\uff0c\u4e0d\u6309\u767b\u5f55\u8d26\u53f7\u8fc7\u6ee4 */
+    /** 我的待办：全员共享，不按登录账号过滤 */
     @PostMapping("/todo/page")
     public Result<List<WorkflowItemDto>> todoPage(@RequestBody PageQueryDto q) {
         List<WorkflowItemDto> all = loadAll(q, null);
-        boolean processed = "\u5df2\u5904\u7406".equals(q.getStatus());
+        boolean processed = "已处理".equals(q.getStatus());
         all = all.stream().filter(i -> {
             boolean pending;
             if ("leave".equals(i.getBizType())) {
                 // 请假：仅「待审批」(step=1 且申请中) 进入待办
-                pending = "\u7533\u8bf7\u4e2d".equals(i.getFlowStatus()) && (i.getStep() == null || i.getStep() == 1);
+                pending = "申请中".equals(i.getFlowStatus()) && (i.getStep() == null || i.getStep() == 1);
             } else {
-                pending = "\u7533\u8bf7\u4e2d".equals(i.getFlowStatus());
+                pending = "申请中".equals(i.getFlowStatus());
             }
             return processed ? !pending : pending;
         }).collect(Collectors.toList());
         return pageSlice(all, q);
     }
 
+    /** 从 Session.online 取登录用户真实姓名，用于「我的申请」归属过滤。 */
     private String resolveOnlineName(HttpSession session) {
         if (session == null) return null;
         Object online = session.getAttribute("online");
@@ -88,15 +95,15 @@ public class CollaborationController {
     }
 
     /**
-     * @param owner \u975e\u7a7a\u65f6\u4ec5\u52a0\u8f7d\u8be5\u7528\u6237\u53d1\u8d77\u7684\u5355\u636e\uff08applicant / creator\uff09\uff1b
-     *              \u4e3a null \u65f6\u4e0d\u6309\u7528\u6237\u8fc7\u6ee4\uff08\u5f85\u529e\u5171\u4eab\uff09\u3002
+     * @param owner 非空时仅加载该用户发起的单据（applicant / creator）；
+     *              为 null 时不按用户过滤（待办共享）。
      */
     private List<WorkflowItemDto> loadAll(PageQueryDto q, String owner) {
         List<WorkflowItemDto> list = new ArrayList<>();
         String type = q.getType();
-        if (!StringUtils.hasText(type) || "\u5165\u4f4f".equals(type)) list.addAll(fromCheckin(q, owner));
-        if (!StringUtils.hasText(type) || "\u9000\u4f4f".equals(type)) list.addAll(fromCheckout(q, owner));
-        if (!StringUtils.hasText(type) || "\u8bf7\u5047".equals(type)) list.addAll(fromLeave(q, owner));
+        if (!StringUtils.hasText(type) || "入住".equals(type)) list.addAll(fromCheckin(q, owner));
+        if (!StringUtils.hasText(type) || "退住".equals(type)) list.addAll(fromCheckout(q, owner));
+        if (!StringUtils.hasText(type) || "请假".equals(type)) list.addAll(fromLeave(q, owner));
         list.sort(Comparator.comparing(WorkflowItemDto::getApplyTime, Comparator.nullsLast(Comparator.reverseOrder())));
         return list;
     }
@@ -113,8 +120,8 @@ public class CollaborationController {
             WorkflowItemDto d = new WorkflowItemDto();
             d.setId(c.getId());
             d.setDocNo(c.getDocNo());
-            d.setTitle(c.getElderName() + "\u7684\u5165\u4f4f\u7533\u8bf7");
-            d.setCategory("\u5165\u4f4f");
+            d.setTitle(c.getElderName() + "的入住申请");
+            d.setCategory("入住");
             d.setApplicant(displayApplicant(c.getApplicant(), c.getCreator()));
             d.setApplyTime(fmt(c.getApplyTime()));
             d.setFinishTime(fmt(c.getFinishTime()));
@@ -138,12 +145,12 @@ public class CollaborationController {
             WorkflowItemDto d = new WorkflowItemDto();
             d.setId(c.getId());
             d.setDocNo(c.getDocNo());
-            d.setTitle(c.getElderName() + "\u7684\u9000\u4f4f\u7533\u8bf7");
-            d.setCategory("\u9000\u4f4f");
+            d.setTitle(c.getElderName() + "的退住申请");
+            d.setCategory("退住");
             d.setApplicant(displayApplicant(c.getApplicant(), c.getCreator()));
             d.setApplyTime(fmt(c.getApplyTime()));
-            d.setFinishTime("\u5df2\u5b8c\u6210".equals(c.getFlowStatus()) || "\u5df2\u5b8c\u6210".equals(c.getStepStatus())
-                    ? fmt(c.getCreateTime()) : "\u2014");
+            d.setFinishTime("已完成".equals(c.getFlowStatus()) || "已完成".equals(c.getStepStatus())
+                    ? fmt(c.getCreateTime()) : "—");
             d.setFlowStatus(mapCheckoutFlow(c));
             d.setWaitDuration(wait(c.getApplyTime()));
             d.setStep(c.getStep());
@@ -164,28 +171,31 @@ public class CollaborationController {
             WorkflowItemDto d = new WorkflowItemDto();
             d.setId(c.getId());
             d.setDocNo(c.getDocNo());
-            d.setTitle(c.getElderName() + "\u7684\u8bf7\u5047\u7533\u8bf7");
-            d.setCategory("\u8bf7\u5047");
+            d.setTitle(c.getElderName() + "的请假申请");
+            d.setCategory("请假");
             d.setApplicant(displayApplicant(c.getApplicant(), c.getCreator()));
             d.setApplyTime(fmt(c.getApplyTime()));
-            d.setFinishTime("\u5df2\u8fd4\u56de".equals(c.getStatus()) ? fmt(c.getActualReturnTime()) : "\u2014");
+            d.setFinishTime("已返回".equals(c.getStatus()) ? fmt(c.getActualReturnTime()) : "—");
             d.setFlowStatus(mapLeaveFlow(c.getStatus()));
             d.setWaitDuration(wait(c.getApplyTime()));
-            d.setStep("\u5f85\u5ba1\u6279".equals(c.getStatus()) ? 1 : 2);
+            // step=1 表示待审批阶段，供 todoPage 区分「待审批」与「请假中」
+            d.setStep("待审批".equals(c.getStatus()) ? 1 : 2);
             d.setBizType("leave");
             return d;
         }).collect(Collectors.toList());
     }
 
+    /** 展示用申请人：优先 applicant，否则 creator。 */
     private String displayApplicant(String applicant, String creator) {
         if (StringUtils.hasText(applicant)) return applicant;
         return StringUtils.hasText(creator) ? creator : null;
     }
 
+    /** 退住：flowStatus/stepStatus 任一终态则映射为已完成或已关闭，否则申请中。 */
     private String mapCheckoutFlow(Checkout c) {
-        if ("\u5df2\u5b8c\u6210".equals(c.getFlowStatus()) || "\u5df2\u5b8c\u6210".equals(c.getStepStatus())) return "\u5df2\u5b8c\u6210";
-        if ("\u5df2\u5173\u95ed".equals(c.getFlowStatus()) || "\u5df2\u5173\u95ed".equals(c.getStepStatus())) return "\u5df2\u5173\u95ed";
-        return "\u7533\u8bf7\u4e2d";
+        if ("已完成".equals(c.getFlowStatus()) || "已完成".equals(c.getStepStatus())) return "已完成";
+        if ("已关闭".equals(c.getFlowStatus()) || "已关闭".equals(c.getStepStatus())) return "已关闭";
+        return "申请中";
     }
 
     /**
@@ -194,29 +204,37 @@ public class CollaborationController {
      * 已返回 -> 已完成；超时未归/已拒绝/已关闭 -> 已关闭。
      * 待办列表仅把「待审批」视为待处理（见 todoPage）。
      */
+    /**
+     * 请假业务状态映射到协同统一流程状态：
+     * 待审批 -> 申请中（进入待办）；请假中 -> 申请中（我的申请仍可见）；
+     * 已返回 -> 已完成；超时未归/已拒绝/已关闭 -> 已关闭。
+     * 待办列表只把「待审批」视为待处理（见 todoPage）。
+     */
     private String mapLeaveFlow(String s) {
-        if ("\u5df2\u8fd4\u56de".equals(s)) return "\u5df2\u5b8c\u6210";
-        if ("\u8d85\u65f6\u672a\u5f52".equals(s) || "\u5df2\u62d2\u7edd".equals(s) || "\u5df2\u5173\u95ed".equals(s)) {
-            return "\u5df2\u5173\u95ed";
+        if ("已返回".equals(s)) return "已完成";
+        if ("超时未归".equals(s) || "已拒绝".equals(s) || "已关闭".equals(s)) {
+            return "已关闭";
         }
         // 待审批、请假中
-        return "\u7533\u8bf7\u4e2d";
+        return "申请中";
     }
 
     private String fmt(LocalDateTime t) {
-        return t == null ? "\u2014" : t.format(FMT);
+        return t == null ? "—" : t.format(FMT);
     }
 
+    /** 自申请时间起算的等待时长文案。 */
     private String wait(LocalDateTime t) {
-        if (t == null) return "\u2014";
+        if (t == null) return "—";
         Duration d = Duration.between(t, LocalDateTime.now());
         long secs = Math.max(0, d.getSeconds());
         long mins = secs / 60;
-        if (mins < 1) return secs + "\u79d2";
-        if (mins < 60) return mins + "\u5206\u949f";
-        return (mins / 60) + "\u5c0f\u65f6" + (mins % 60) + "\u5206\u949f";
+        if (mins < 1) return secs + "秒";
+        if (mins < 60) return mins + "分钟";
+        return (mins / 60) + "小时" + (mins % 60) + "分钟";
     }
 
+    /** 内存分页：返回当前页切片与总条数。 */
     private Result<List<WorkflowItemDto>> pageSlice(List<WorkflowItemDto> all, PageQueryDto q) {
         int pageNum = q.getPageNum() == null ? 1 : q.getPageNum();
         int pageSize = q.getPageSize() == null ? 10 : q.getPageSize();

@@ -16,11 +16,18 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 退住管理：分页查询、详情、新建申请、多步骤审批推进、撤销。
+ * <p>
+ * 步骤约定（step）：新建后从 2 开始；2/5/6 为审批节点；3 解除协议；4 账单核算；7 退款完成。
+ * 流程状态 flowStatus：申请中 / 已完成 / 已关闭。
+ */
 @RestController
 @RequestMapping("/checkout")
 public class CheckoutController {
     @Autowired private CheckoutMapper checkoutMapper;
 
+    /** 退住单分页列表，支持单据号、老人姓名、身份证模糊查询。 */
     @PostMapping("/page")
     public Result<List<Checkout>> page(@RequestBody PageQueryDto q) {
         LambdaQueryWrapper<Checkout> w = new LambdaQueryWrapper<>();
@@ -36,21 +43,25 @@ public class CheckoutController {
     public Result<Checkout> detail(@RequestParam("id") Long id) {
         Checkout c = checkoutMapper.selectById(id);
         if (c == null) {
-            return Result.fail("\u9000\u4f4f\u5355\u4e0d\u5b58\u5728");
+            return Result.fail("退住单不存在");
         }
         return Result.ok(c);
     }
 
+    /**
+     * 新建或更新退住单。新建时生成单据号 TZ*，初始化 step=2、申请中，
+     * 并从 Session 补全 applicant/creator。
+     */
     @PostMapping("/save")
     public Result<String> save(@RequestBody Checkout c, HttpSession session) {
         if (!StringUtils.hasText(c.getElderName()) || c.getCheckoutDate() == null || !StringUtils.hasText(c.getReason())) {
-            return Result.fail("\u8bf7\u5b8c\u5584\u9000\u4f4f\u7533\u8bf7\u5fc5\u586b\u4fe1\u606f");
+            return Result.fail("请完善退住申请必填信息");
         }
         if (c.getId() == null) {
             if (c.getDocNo() == null) c.setDocNo("TZ" + System.currentTimeMillis());
             c.setStep(2);
-            c.setStepStatus("\u8fdb\u884c\u4e2d");
-            c.setFlowStatus("\u7533\u8bf7\u4e2d");
+            c.setStepStatus("进行中");
+            c.setFlowStatus("申请中");
             c.setApplyTime(LocalDateTime.now());
             c.setCreateTime(LocalDateTime.now());
             fillApplicantFromSession(c, session);
@@ -61,7 +72,10 @@ public class CheckoutController {
         return Result.ok(String.valueOf(c.getId()));
     }
 
-    /** \u4ece Session \u8865\u5168 applicant/creator\uff08\u4e0e\u767b\u5f55 realname \u4e00\u81f4\uff09 */
+    /**
+     * 从 Session 补全 applicant/creator（与登录 realname 一致）。
+     * 无登录信息时回退为演示账号「顾廷烬」，便于本地联调。
+     */
     private void fillApplicantFromSession(Checkout c, HttpSession session) {
         String name = null;
         if (session != null) {
@@ -74,19 +88,23 @@ public class CheckoutController {
             if (!StringUtils.hasText(c.getApplicant())) c.setApplicant(name);
             if (!StringUtils.hasText(c.getCreator())) c.setCreator(name);
         } else {
-            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("\u987e\u5ef7\u70ec");
-            if (!StringUtils.hasText(c.getCreator())) c.setCreator("\u987e\u5ef7\u70ec");
+            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("顾廷烬");
+            if (!StringUtils.hasText(c.getCreator())) c.setCreator("顾廷烬");
         }
     }
 
+    /**
+     * 推进退住流程步骤。step 2/5/6 为审批；3 解除协议；4 账单；7 办结。
+     * 禁止跳步；终态单据不可再改。
+     */
     @PostMapping("/updateStep")
     public Result<String> updateStep(@RequestBody Checkout body) {
-        if (body.getId() == null) return Result.fail("\u9000\u4f4f\u5355\u4e0d\u5b58\u5728");
+        if (body.getId() == null) return Result.fail("退住单不存在");
         Checkout db = checkoutMapper.selectById(body.getId());
-        if (db == null) return Result.fail("\u9000\u4f4f\u5355\u4e0d\u5b58\u5728");
-        if ("\u5df2\u5b8c\u6210".equals(db.getFlowStatus()) || "\u5df2\u5173\u95ed".equals(db.getFlowStatus())
-                || "\u5df2\u5b8c\u6210".equals(db.getStepStatus()) || "\u5df2\u5173\u95ed".equals(db.getStepStatus())) {
-            return Result.fail("\u5f53\u524d\u6d41\u7a0b\u5df2\u7ed3\u675f");
+        if (db == null) return Result.fail("退住单不存在");
+        if ("已完成".equals(db.getFlowStatus()) || "已关闭".equals(db.getFlowStatus())
+                || "已完成".equals(db.getStepStatus()) || "已关闭".equals(db.getStepStatus())) {
+            return Result.fail("当前流程已结束");
         }
         int current = db.getStep() == null ? 1 : db.getStep();
         Integer reqStep = body.getStep();
@@ -94,43 +112,43 @@ public class CheckoutController {
 
         if (current == 2 || current == 5 || current == 6) {
             if (!StringUtils.hasText(approval)) {
-                return Result.fail("\u8bf7\u9009\u62e9\u5ba1\u6279\u7ed3\u679c");
+                return Result.fail("请选择审批结果");
             }
             db.setApprovalResult(approval);
             db.setApprovalComment(body.getApprovalComment());
-            if ("\u901a\u8fc7".equals(approval) || "\u5ba1\u6279\u901a\u8fc7".equals(approval)) {
+            if ("通过".equals(approval) || "审批通过".equals(approval)) {
                 db.setStep(current + 1);
-                db.setStepStatus("\u8fdb\u884c\u4e2d");
-                db.setFlowStatus("\u7533\u8bf7\u4e2d");
-            } else if ("\u62d2\u7edd".equals(approval) || "\u5ba1\u6279\u62d2\u7edd".equals(approval)) {
-                db.setStepStatus("\u5df2\u5173\u95ed");
-                db.setFlowStatus("\u5df2\u5173\u95ed");
-            } else if ("\u9000\u56de".equals(approval) || "\u9a73\u56de".equals(approval)) {
+                db.setStepStatus("进行中");
+                db.setFlowStatus("申请中");
+            } else if ("拒绝".equals(approval) || "审批拒绝".equals(approval)) {
+                db.setStepStatus("已关闭");
+                db.setFlowStatus("已关闭");
+            } else if ("退回".equals(approval) || "驳回".equals(approval)) {
                 db.setStep(Math.max(1, current - 1));
-                db.setStepStatus("\u8fdb\u884c\u4e2d");
-                db.setFlowStatus("\u7533\u8bf7\u4e2d");
+                db.setStepStatus("进行中");
+                db.setFlowStatus("申请中");
             } else {
-                return Result.fail("\u65e0\u6548\u7684\u5ba1\u6279\u7ed3\u679c");
+                return Result.fail("无效的审批结果");
             }
             checkoutMapper.updateById(db);
             return Result.ok(String.valueOf(db.getStep()));
         }
 
-        if (reqStep == null) return Result.fail("\u7f3a\u5c11\u76ee\u6807\u6b65\u9aa4");
+        if (reqStep == null) return Result.fail("缺少目标步骤");
         if (current == 7 && reqStep == 7) {
             if (body.getRefundAmount() != null) db.setRefundAmount(body.getRefundAmount());
             db.setStep(7);
-            db.setStepStatus("\u5df2\u5b8c\u6210");
-            db.setFlowStatus("\u5df2\u5b8c\u6210");
+            db.setStepStatus("已完成");
+            db.setFlowStatus("已完成");
             checkoutMapper.updateById(db);
             return Result.ok("7");
         }
         if (reqStep != current + 1) {
-            return Result.fail("\u8bf7\u5148\u5b8c\u6210\u5f53\u524d\u6b65\u9aa4\uff0c\u4e0d\u53ef\u8df3\u6b65");
+            return Result.fail("请先完成当前步骤，不可跳步");
         }
         if (current == 3) {
             if (body.getTerminateDate() == null || !StringUtils.hasText(body.getTerminateFile())) {
-                return Result.fail("\u8bf7\u5b8c\u5584\u89e3\u9664\u534f\u8bae\u4fe1\u606f");
+                return Result.fail("请完善解除协议信息");
             }
             db.setTerminateDate(body.getTerminateDate());
             db.setTerminateFile(body.getTerminateFile());
@@ -147,21 +165,22 @@ public class CheckoutController {
             db.setRefundAmount(refund);
         }
         db.setStep(reqStep);
-        db.setStepStatus("\u8fdb\u884c\u4e2d");
-        db.setFlowStatus("\u7533\u8bf7\u4e2d");
+        db.setStepStatus("进行中");
+        db.setFlowStatus("申请中");
         checkoutMapper.updateById(db);
         return Result.ok(String.valueOf(db.getStep()));
     }
 
+    /** 撤销：仅申请中/进行中可关闭。 */
     @GetMapping("/cancel")
     public Result<String> cancel(@RequestParam("id") Long id) {
         Checkout db = checkoutMapper.selectById(id);
-        if (db == null) return Result.fail("\u9000\u4f4f\u5355\u4e0d\u5b58\u5728");
-        if (!"\u7533\u8bf7\u4e2d".equals(db.getFlowStatus()) && !"\u8fdb\u884c\u4e2d".equals(db.getStepStatus())) {
-            return Result.fail("\u4ec5\u8fdb\u884c\u4e2d\u53ef\u64a4\u9500");
+        if (db == null) return Result.fail("退住单不存在");
+        if (!"申请中".equals(db.getFlowStatus()) && !"进行中".equals(db.getStepStatus())) {
+            return Result.fail("仅进行中可撤销");
         }
-        db.setFlowStatus("\u5df2\u5173\u95ed");
-        db.setStepStatus("\u5df2\u5173\u95ed");
+        db.setFlowStatus("已关闭");
+        db.setStepStatus("已关闭");
         checkoutMapper.updateById(db);
         return Result.ok("ok");
     }

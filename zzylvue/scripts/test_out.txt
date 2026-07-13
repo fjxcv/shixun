@@ -1,6 +1,0 @@
-before: 快捷入口
-utf8_gbk ERR 'gbk' codec can't decode byte 0xab in position 2: illegal multibyte sequence
-gbk_utf8 ERR 'utf-8' codec can't decode byte 0xbf in position 0: invalid start byte
-latin1 ERR 'latin-1' codec can't encode characters in position 0-3: ordinal not in range(256)
-cp1252 ERR 'charmap' codec can't encode characters in position 0-3: character maps to <undefined>
-whole file ERR 'gbk' codec can't decode byte 0xab in position 433: illegal multibyte sequence

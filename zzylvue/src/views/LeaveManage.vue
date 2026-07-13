@@ -118,6 +118,9 @@
 </template>
 
 <script setup>
+/**
+ * 请假管理列表：分页查询、新建申请入口、按业务 status（待审批/请假中等）筛选。
+ */
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'

@@ -75,6 +75,10 @@
 </template>
 
 <script setup>
+/**
+ * 请假详情：展示单据信息，并按状态提供审批、销假、撤销等操作。
+ * 状态含义与后端 LeaveController 一致。
+ */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
@@ -100,7 +104,7 @@ const timelineItems = computed(() => {
     items.push({
       time: d.applyTime,
       type: 'success',
-      text: `发起申请-申请请假 \u00b7 ${d.applicant || d.creator || ''}`
+      text: `发起申请-申请请假 · ${d.applicant || d.creator || ''}`
     })
   }
   if (d.status && d.status !== '待审批') {
@@ -109,15 +113,15 @@ const timelineItems = computed(() => {
       time: d.applyTime || '',
       type: passed ? 'primary' : 'danger',
       text: passed
-        ? `审批通过-申请审批 \u00b7 ${d.status}`
-        : `审批拒绝-申请审批 \u00b7 ${d.status}`
+        ? `审批通过-申请审批 · ${d.status}`
+        : `审批拒绝-申请审批 · ${d.status}`
     })
   }
   if (d.status === '已返回' && d.actualReturnTime) {
     items.push({
       time: d.actualReturnTime,
       type: 'success',
-      text: `销假完成 \u00b7 ${d.cancelUser || ''}`
+      text: `销假完成 · ${d.cancelUser || ''}`
     })
   }
   return items

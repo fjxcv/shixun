@@ -55,6 +55,9 @@
 </template>
 
 <script setup>
+/**
+ * 退住申请页：填写必填信息后 POST /checkout/save，后端补全申请人并进入 step=2。
+ */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'

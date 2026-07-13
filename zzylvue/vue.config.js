@@ -16,7 +16,7 @@ module.exports = defineConfig({
         warnings: false,
         runtimeErrors: (error) => {
           const message = error?.message || String(error)
-          // Element Plus 等组件触发的浏览器 ResizeObserver 已知告警，不影响功能
+          // Element Plus ????????? ResizeObserver ??????????
           if (/ResizeObserver loop/i.test(message)) return false
           return true
         }
@@ -45,20 +45,9 @@ module.exports = defineConfig({
       '/reservation': apiProxy,
       '/visit': apiProxy,
       '/collab': apiProxy,
-      '/chat01': apiProxy,
-      '/chat02': apiProxy,
-      '/saveNursingItme': apiProxy,
-      '/nursingItemPage': apiProxy,
-      '/updateNursingItme': apiProxy,
-      '/deleteNursingItme': apiProxy,
+      // ????????????? /levelList??????????
       '/saveLevel': apiProxy,
-      '/levelList': apiProxy,
-      '/saveNursingPlain': apiProxy,
-      '/pageList': apiProxy,
-      '/updateNursingPlain': apiProxy,
-      '/plainList': apiProxy,
-      '/totalPay': apiProxy,
-      '/queryPlainItem': apiProxy
+      '/levelList': apiProxy
     }
   },
   configureWebpack: {

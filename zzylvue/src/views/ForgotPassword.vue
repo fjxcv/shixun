@@ -41,6 +41,9 @@
 </template>
 
 <script setup>
+/**
+ * 忘记密码页：提交账号+手机号+新密码到 /resetPwd。
+ */
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'

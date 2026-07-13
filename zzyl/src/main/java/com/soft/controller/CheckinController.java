@@ -16,11 +16,18 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 入住管理：分页、详情、申请、多步骤推进、床位冲突检查、撤销。
+ * <p>
+ * 新建后 step 从 2 开始；step=3 为审批节点；step=5 签合同并办结。
+ * 新建时从 Session 补全 applicant/creator，与协同「我的申请」归属一致。
+ */
 @RestController
 @RequestMapping("/checkin")
 public class CheckinController {
     @Autowired private CheckinMapper checkinMapper;
 
+    /** 入住单分页列表。 */
     @PostMapping("/page")
     public Result<List<Checkin>> page(@RequestBody PageQueryDto q) {
         LambdaQueryWrapper<Checkin> w = new LambdaQueryWrapper<>();
@@ -44,23 +51,24 @@ public class CheckinController {
         return Result.ok(c);
     }
 
+    /** 新建或更新入住单；新建时校验必填与重复入住，并从 Session 补全申请人。 */
     @PostMapping("/save")
     public Result<String> save(@RequestBody Checkin c, HttpSession session) {
         if (!StringUtils.hasText(c.getElderName()) || !StringUtils.hasText(c.getElderIdcard())
                 || !StringUtils.hasText(c.getElderPhone()) || !StringUtils.hasText(c.getAddress())) {
-            return Result.fail("\u8bf7\u5b8c\u5584\u7533\u8bf7\u5fc5\u586b\u4fe1\u606f");
+            return Result.fail("请完善申请必填信息");
         }
         Long dup = checkinMapper.selectCount(new LambdaQueryWrapper<Checkin>()
                 .eq(Checkin::getElderIdcard, c.getElderIdcard())
-                .eq(Checkin::getFlowStatus, "\u5df2\u5b8c\u6210"));
+                .eq(Checkin::getFlowStatus, "已完成"));
         if (dup != null && dup > 0) {
-            return Result.fail("\u8be5\u8001\u4eba\u5df2\u5165\u4f4f\uff0c\u8bf7\u91cd\u65b0\u8f93\u5165");
+            return Result.fail("该老人已入住，请重新输入");
         }
         if (c.getId() == null) {
             if (c.getDocNo() == null) c.setDocNo("RZ" + System.currentTimeMillis());
             c.setStep(2);
-            c.setStepStatus("\u8fdb\u884c\u4e2d");
-            c.setFlowStatus("\u7533\u8bf7\u4e2d");
+            c.setStepStatus("进行中");
+            c.setFlowStatus("申请中");
             c.setApplyTime(LocalDateTime.now());
             c.setCreateTime(LocalDateTime.now());
             if (c.getCheckinDate() == null) c.setCheckinDate(java.time.LocalDate.now());
@@ -72,7 +80,7 @@ public class CheckinController {
         return Result.ok(String.valueOf(c.getId()));
     }
 
-    /** \u4ece Session \u8865\u5168 applicant/creator\uff08\u4e0e\u767b\u5f55 realname \u4e00\u81f4\uff09 */
+    /** 从 Session 补全 applicant/creator（与登录 realname 一致） */
     private void fillApplicantFromSession(Checkin c, HttpSession session) {
         String name = null;
         if (session != null) {
@@ -85,26 +93,30 @@ public class CheckinController {
             if (!StringUtils.hasText(c.getApplicant())) c.setApplicant(name);
             if (!StringUtils.hasText(c.getCreator())) c.setCreator(name);
         } else {
-            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("\u987e\u5ef7\u70ec");
-            if (!StringUtils.hasText(c.getCreator())) c.setCreator("\u987e\u5ef7\u70ec");
+            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("顾廷烬");
+            if (!StringUtils.hasText(c.getCreator())) c.setCreator("顾廷烬");
         }
     }
 
+    /**
+     * 推进入住步骤。currentStep 与库不一致时拒绝。
+     * step=3 走审批；step=5 可办结；其余仅允许 current 或 current+1。
+     */
     @PostMapping("/updateStep")
     public Result<String> updateStep(@RequestBody Checkin body) {
-        if (body.getId() == null) return Result.fail("\u5165\u4f4f\u5355\u4e0d\u5b58\u5728");
+        if (body.getId() == null) return Result.fail("入住单不存在");
         Checkin db = checkinMapper.selectById(body.getId());
-        if (db == null) return Result.fail("\u5165\u4f4f\u5355\u4e0d\u5b58\u5728");
-        if ("\u5df2\u5b8c\u6210".equals(db.getFlowStatus()) || "\u5df2\u5173\u95ed".equals(db.getFlowStatus())) {
-            return Result.fail("\u5f53\u524d\u6d41\u7a0b\u5df2\u7ed3\u675f");
+        if (db == null) return Result.fail("入住单不存在");
+        if ("已完成".equals(db.getFlowStatus()) || "已关闭".equals(db.getFlowStatus())) {
+            return Result.fail("当前流程已结束");
         }
         int current = db.getStep() == null ? 1 : db.getStep();
         Integer reqStep = body.getStep();
 
-        // \u6821\u9a8c\u524d\u7aef\u5f53\u524d\u6b65\u9aa4\u4e0e\u6570\u636e\u5e93\u4e00\u81f4
+        // 校验前端当前步骤与数据库一致
         Integer clientStep = body.getCurrentStep();
         if (clientStep != null && clientStep != current) {
-            return Result.fail("\u9875\u9762\u72b6\u6001\u5df2\u8fc7\u671f\uff0c\u8bf7\u5237\u65b0\u540e\u91cd\u8bd5");
+            return Result.fail("页面状态已过期，请刷新后重试");
         }
 
         String approval = body.getApprovalResult();
@@ -113,28 +125,28 @@ public class CheckinController {
         if (current == 3 && isApproval) {
             db.setApprovalResult(approval);
             db.setApprovalComment(body.getApprovalComment());
-            if ("\u5ba1\u6279\u901a\u8fc7".equals(approval) || "\u901a\u8fc7".equals(approval)) {
+            if ("审批通过".equals(approval) || "通过".equals(approval)) {
                 db.setStep(4);
-                db.setStepStatus("\u8fdb\u884c\u4e2d");
-                db.setFlowStatus("\u7533\u8bf7\u4e2d");
-            } else if ("\u5ba1\u6279\u62d2\u7edd".equals(approval) || "\u62d2\u7edd".equals(approval)) {
+                db.setStepStatus("进行中");
+                db.setFlowStatus("申请中");
+            } else if ("审批拒绝".equals(approval) || "拒绝".equals(approval)) {
                 db.setStep(3);
-                db.setStepStatus("\u5df2\u5173\u95ed");
-                db.setFlowStatus("\u5df2\u5173\u95ed");
+                db.setStepStatus("已关闭");
+                db.setFlowStatus("已关闭");
                 db.setFinishTime(LocalDateTime.now());
-            } else if ("\u9a73\u56de".equals(approval)) {
+            } else if ("驳回".equals(approval)) {
                 db.setStep(2);
-                db.setStepStatus("\u8fdb\u884c\u4e2d");
-                db.setFlowStatus("\u7533\u8bf7\u4e2d");
+                db.setStepStatus("进行中");
+                db.setFlowStatus("申请中");
             } else {
-                return Result.fail("\u65e0\u6548\u7684\u5ba1\u6279\u7ed3\u679c");
+                return Result.fail("无效的审批结果");
             }
             checkinMapper.updateById(db);
             return Result.ok(String.valueOf(db.getStep()));
         }
 
-        if (reqStep == null) return Result.fail("\u7f3a\u5c11\u76ee\u6807\u6b65\u9aa4");
-        if (current == 5 && (reqStep == 5 || "\u5df2\u5b8c\u6210".equals(body.getFlowStatus()) || "\u5df2\u5b8c\u6210".equals(body.getStepStatus()))) {
+        if (reqStep == null) return Result.fail("缺少目标步骤");
+        if (current == 5 && (reqStep == 5 || "已完成".equals(body.getFlowStatus()) || "已完成".equals(body.getStepStatus()))) {
             if (StringUtils.hasText(body.getContractName())) db.setContractName(body.getContractName());
             if (body.getSignDate() != null) db.setSignDate(body.getSignDate());
             if (StringUtils.hasText(body.getContractFile())) db.setContractFile(body.getContractFile());
@@ -142,8 +154,8 @@ public class CheckinController {
             if (StringUtils.hasText(body.getThirdPartyName())) db.setThirdPartyName(body.getThirdPartyName());
             if (StringUtils.hasText(body.getThirdPartyPhone())) db.setThirdPartyPhone(body.getThirdPartyPhone());
             db.setStep(5);
-            db.setStepStatus("\u5df2\u5b8c\u6210");
-            db.setFlowStatus("\u5df2\u5b8c\u6210");
+            db.setStepStatus("已完成");
+            db.setFlowStatus("已完成");
             db.setFinishTime(LocalDateTime.now());
             checkinMapper.updateById(db);
             return Result.ok("5");
@@ -154,16 +166,17 @@ public class CheckinController {
             return Result.ok(String.valueOf(db.getStep()));
         }
         if (reqStep != current + 1) {
-            return Result.fail("\u8bf7\u5148\u5b8c\u6210\u5f53\u524d\u6b65\u9aa4\uff0c\u4e0d\u53ef\u8df3\u6b65");
+            return Result.fail("请先完成当前步骤，不可跳步");
         }
         mergeStepFields(db, body, current);
         db.setStep(reqStep);
-        db.setStepStatus("\u8fdb\u884c\u4e2d");
-        db.setFlowStatus("\u7533\u8bf7\u4e2d");
+        db.setStepStatus("进行中");
+        db.setFlowStatus("申请中");
         checkinMapper.updateById(db);
         return Result.ok(String.valueOf(db.getStep()));
     }
 
+    /** 按当前步骤合并前端提交的业务字段。 */
     private void mergeStepFields(Checkin db, Checkin body, int current) {
         if (current == 2) {
             if (StringUtils.hasText(body.getExtraJson())) db.setExtraJson(body.getExtraJson());
@@ -194,6 +207,7 @@ public class CheckinController {
         }
     }
 
+    /** 检查床位在时间段内是否与申请中/已完成单据冲突。 */
     @PostMapping("/bed-conflicts")
     public Result<List<String>> bedConflicts(@RequestBody java.util.Map<String, Object> body) {
         String start = (String) body.get("start");
@@ -210,7 +224,7 @@ public class CheckinController {
         for (String bedNo : bedNos) {
             LambdaQueryWrapper<Checkin> w = new LambdaQueryWrapper<Checkin>()
                     .eq(Checkin::getBedNo, bedNo)
-                    .in(Checkin::getFlowStatus, "\u7533\u8bf7\u4e2d", "\u5df2\u5b8c\u6210")
+                    .in(Checkin::getFlowStatus, "申请中", "已完成")
                     .le(Checkin::getPeriodStart, endDate)
                     .ge(Checkin::getPeriodEnd, startDate);
             if (excludeId != null && excludeId.longValue() > 0) {
@@ -224,15 +238,16 @@ public class CheckinController {
         return Result.ok(new java.util.ArrayList<>(conflicts));
     }
 
+    /** 撤销：仅申请中可关闭。 */
     @GetMapping("/cancel")
     public Result<String> cancel(@RequestParam("id") Long id) {
         Checkin db = checkinMapper.selectById(id);
-        if (db == null) return Result.fail("\u5165\u4f4f\u5355\u4e0d\u5b58\u5728");
-        if (!"\u7533\u8bf7\u4e2d".equals(db.getFlowStatus())) {
-            return Result.fail("\u4ec5\u7533\u8bf7\u4e2d\u53ef\u64a4\u9500");
+        if (db == null) return Result.fail("入住单不存在");
+        if (!"申请中".equals(db.getFlowStatus())) {
+            return Result.fail("仅申请中可撤销");
         }
-        db.setFlowStatus("\u5df2\u5173\u95ed");
-        db.setStepStatus("\u5df2\u5173\u95ed");
+        db.setFlowStatus("已关闭");
+        db.setStepStatus("已关闭");
         checkinMapper.updateById(db);
         return Result.ok("ok");
     }

@@ -19,12 +19,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 用户业务实现：登录校验、改密、注册、忘记密码重置。
+ * 登录成功将 UserLineDto 写入 Session.online，供协同申请归属等使用。
+ */
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     implements UserService {
     @Autowired
     private UserMapper userMapper;
 
+    /** 登录：校验账号与密码，成功则写入 Session.online。 */
     @Override
     public Map<String, Object> queryUserService(UserDto userDto, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
@@ -34,13 +39,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         wrapper.eq("account", account);
         List<User> users = userMapper.selectList(wrapper);
         if (users == null || users.isEmpty()) {
-            result.put("msg", account + "\u8d26\u53f7\u4e0d\u5b58\u5728......");
+            result.put("msg", account + "账号不存在......");
             return result;
         }
         User user = users.get(0);
         String dbPwd = user.getUpwd();
         if (!dbPwd.equals(userDto.getUpwd())) {
-            result.put("msg", "\u8f93\u5165\u5bc6\u7801\u9519\u8bef......");
+            result.put("msg", "输入密码错误......");
             return result;
         }
         UserLineDto userLineDto = new UserLineDto();
@@ -52,15 +57,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return result;
     }
 
+    /** 已登录用户修改密码：校验原密码后更新。 */
     @Override
     public Map<String, Object> updateUserPwdService(UserPwdDto pwdDto) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", 400);
-        result.put("msg", "\u66f4\u65b0\u7528\u6237\u5bc6\u7801\u5931\u8d25......");
+        result.put("msg", "更新用户密码失败......");
         Integer id = pwdDto.getId();
         User user = userMapper.selectById(id);
         if (!user.getUpwd().equals(pwdDto.getOldpwd())) {
-            result.put("msg", "\u539f\u59cb\u5bc6\u7801\u4e0d\u6b63\u786e......");
+            result.put("msg", "原始密码不正确......");
             return result;
         }
         User u = new User();
@@ -68,10 +74,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         u.setUpwd(pwdDto.getNewpwd());
         userMapper.updateById(u);
         result.put("code", 200);
-        result.put("msg", "\u66f4\u65b0\u7528\u6237\u5bc6\u7801\u6210\u529f\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55......");
+        result.put("msg", "更新用户密码成功，请重新登录......");
         return result;
     }
 
+    /** 注册：校验必填、长度、账号唯一；默认角色「普通用户」。 */
     @Override
     public Map<String, Object> registerUserService(RegisterDto registerDto) {
         Map<String, Object> result = new HashMap<>();
@@ -81,7 +88,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 || !StringUtils.hasText(registerDto.getUpwd())
                 || !StringUtils.hasText(registerDto.getRealname())
                 || !StringUtils.hasText(registerDto.getPhone())) {
-            result.put("msg", "\u8bf7\u5b8c\u6574\u586b\u5199\u6ce8\u518c\u4fe1\u606f");
+            result.put("msg", "请完整填写注册信息");
             return result;
         }
         String account = registerDto.getAccount().trim();
@@ -89,18 +96,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String realname = registerDto.getRealname().trim();
         String phone = registerDto.getPhone().trim();
         if (account.length() < 3) {
-            result.put("msg", "\u7528\u6237\u540d\u81f3\u5c11\u4e09\u4e2a\u5b57\u7b26");
+            result.put("msg", "用户名至少三个字符");
             return result;
         }
         if (upwd.length() < 6) {
-            result.put("msg", "\u5bc6\u7801\u957f\u5ea6\u4e0d\u80fd\u5c11\u4e8e6\u4f4d");
+            result.put("msg", "密码长度不能少于6位");
             return result;
         }
         QueryWrapper<User> wrapper = new QueryWrapper<>();
         wrapper.eq("account", account);
         Long count = userMapper.selectCount(wrapper);
         if (count != null && count > 0) {
-            result.put("msg", "\u7528\u6237\u540d\u5df2\u5b58\u5728\uff0c\u8bf7\u6362\u4e00\u4e2a");
+            result.put("msg", "用户名已存在，请换一个");
             return result;
         }
         User user = new User();
@@ -114,17 +121,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (StringUtils.hasText(registerDto.getSex())) {
             user.setSex(registerDto.getSex().trim());
         }
-        user.setRole("\u666e\u901a\u7528\u6237");
+        user.setRole("普通用户");
         user.setDepartment("");
         user.setJob("");
         user.setIslock(0);
         user.setImage("https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png");
         userMapper.insert(user);
         result.put("code", 200);
-        result.put("msg", "\u6ce8\u518c\u6210\u529f\uff0c\u8bf7\u767b\u5f55");
+        result.put("msg", "注册成功，请登录");
         return result;
     }
 
+    /** 忘记密码：账号+手机号匹配后重置新密码。 */
     @Override
     public Map<String, Object> resetPwdByAccountService(ResetPwdDto resetPwdDto) {
         Map<String, Object> result = new HashMap<>();
@@ -133,26 +141,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 || !StringUtils.hasText(resetPwdDto.getAccount())
                 || !StringUtils.hasText(resetPwdDto.getPhone())
                 || !StringUtils.hasText(resetPwdDto.getNewpwd())) {
-            result.put("msg", "\u8bf7\u5b8c\u6574\u586b\u5199\u8d26\u53f7\u3001\u624b\u673a\u53f7\u4e0e\u65b0\u5bc6\u7801");
+            result.put("msg", "请完整填写账号、手机号与新密码");
             return result;
         }
         String account = resetPwdDto.getAccount().trim();
         String phone = resetPwdDto.getPhone().trim();
         String newpwd = resetPwdDto.getNewpwd();
         if (newpwd.length() < 6) {
-            result.put("msg", "\u5bc6\u7801\u957f\u5ea6\u4e0d\u80fd\u5c11\u4e8e6\u4f4d");
+            result.put("msg", "密码长度不能少于6位");
             return result;
         }
         QueryWrapper<User> wrapper = new QueryWrapper<>();
         wrapper.eq("account", account);
         List<User> users = userMapper.selectList(wrapper);
         if (users == null || users.isEmpty()) {
-            result.put("msg", "\u8d26\u53f7\u4e0d\u5b58\u5728");
+            result.put("msg", "账号不存在");
             return result;
         }
         User user = users.get(0);
         if (!phone.equals(user.getPhone())) {
-            result.put("msg", "\u624b\u673a\u53f7\u4e0e\u8d26\u53f7\u4e0d\u5339\u914d");
+            result.put("msg", "手机号与账号不匹配");
             return result;
         }
         User u = new User();
@@ -160,7 +168,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         u.setUpwd(newpwd);
         userMapper.updateById(u);
         result.put("code", 200);
-        result.put("msg", "\u5bc6\u7801\u91cd\u7f6e\u6210\u529f\uff0c\u8bf7\u767b\u5f55");
+        result.put("msg", "密码重置成功，请登录");
         return result;
     }
 }

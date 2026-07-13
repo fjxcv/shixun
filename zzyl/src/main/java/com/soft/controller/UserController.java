@@ -17,12 +17,17 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 当前登录用户信息：加载会话身份、个人资料展示/更新、修改密码。
+ * loadInfo / showInfo 在无 Session 时回退演示数据，便于本地联调。
+ */
 @RestController
 public class UserController {
 
     @Autowired
     private UserService userService;
 
+    /** 返回 Session 简要登录信息；无 Session 时回退演示用户。 */
     @RequestMapping("/loadInfo")
     public UserLineDto loadLoginInfo(HttpSession session) {
         Object online = session.getAttribute("online");
@@ -31,10 +36,11 @@ public class UserController {
         }
         UserLineDto dto = new UserLineDto();
         dto.setId(1);
-        dto.setRealname("\u987e\u5ef7\u70ec");
+        dto.setRealname("顾廷烬");
         return dto;
     }
 
+    /** 按 Session 用户 id 查完整资料；缺失时用演示数据填充。 */
     @RequestMapping("/showInfo")
     public User showUserInfo(HttpSession session) {
         User user = null;
@@ -53,11 +59,12 @@ public class UserController {
         return user;
     }
 
+    /** 更新用户资料；若为当前登录用户则同步 Session.online。 */
     @RequestMapping("/updateUser")
     public Map<String, Object> updateUser(@RequestBody User userDto, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", 400);
-        result.put("msg", "\u66f4\u65b0\u7528\u6237\u4fe1\u606f\u5931\u8d25");
+        result.put("msg", "更新用户信息失败");
         if (userDto.getId() == null) {
             return result;
         }
@@ -77,11 +84,12 @@ public class UserController {
             session.setAttribute("online", dto);
         }
         result.put("code", 200);
-        result.put("msg", "\u66f4\u65b0\u7528\u6237\u4fe1\u606f\u6210\u529f");
+        result.put("msg", "更新用户信息成功");
         result.put("image", user.getImage());
         return result;
     }
 
+    /** 修改密码：从 Session 注入当前用户 id。 */
     @RequestMapping("/updatePwd")
     public Map<String, Object> updateUserPwd(@RequestBody UserPwdDto userDto, HttpSession session) {
         Object object = session.getAttribute("online");

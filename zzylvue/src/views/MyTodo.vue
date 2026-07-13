@@ -61,6 +61,10 @@
 </template>
 
 <script setup>
+/**
+ * 我的待办页：调用 /collab/todo/page，全员共享待处理单据。
+ * 「待处理」含申请中（请假仅待审批）；「已处理」为其余。
+ */
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'

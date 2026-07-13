@@ -12,10 +12,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public Result<String> handleException(Exception e) {
-        log.error("\u672a\u6355\u83b7\u5f02\u5e38", e);
+        log.error("未捕获异常", e);
         String msg = e.getMessage();
         if (msg == null || msg.isBlank()) {
-            msg = "\u670d\u52a1\u5668\u5185\u90e8\u9519\u8bef";
+            msg = "服务器内部错误";
         }
         return Result.fail(msg);
     }

@@ -54,6 +54,9 @@
 </template>
 
 <script setup>
+/**
+ * 登录页：提交账号密码到 /login；页脚提供忘记密码与注册入口。
+ */
 import { ref, reactive } from 'vue'
 import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'

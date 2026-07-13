@@ -53,6 +53,10 @@
 </template>
 
 <script setup>
+/**
+ * 我的申请页：调用 /collab/apply/page，仅展示当前登录用户发起的入住/退住/请假。
+ * 状态筛选项对应统一 flowStatus；点击行按 bizType 跳转对应详情。
+ */
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'

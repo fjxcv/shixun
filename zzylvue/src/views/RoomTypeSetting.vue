@@ -64,7 +64,7 @@ import PageCard from '@/components/PageCard.vue'
 const tableData = ref([])
 const dialogVisible = ref(false)
 const loading = ref(false)
-const defaultForm = () => ({ id: null, name: '', price: 800, intro: '\u623f\u95f4\u5185\u8bbe\u670924\u5c0f\u65f6cctv\u76d1\u63a7', creator: '\u987e\u5ef7\u70ec', status: 1 })
+const defaultForm = () => ({ id: null, name: '', price: 800, intro: '房间内设有24小时cctv监控', creator: '顾廷烬', status: 1 })
 const form = reactive(defaultForm())
 
 onMounted(() => loadList())

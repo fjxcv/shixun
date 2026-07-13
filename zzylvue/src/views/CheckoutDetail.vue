@@ -79,6 +79,10 @@
 </template>
 
 <script setup>
+/**
+ * 退住详情与步骤推进：按 step 展示信息区/审批区，调用 /checkout/updateStep。
+ * 审批节点为 2/5/6；终态不可再操作。
+ */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'

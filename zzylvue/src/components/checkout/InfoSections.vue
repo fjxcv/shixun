@@ -51,6 +51,9 @@
 </template>
 
 <script setup>
+/**
+ * 退住详情信息分区展示（老人、合同、账单等只读区块）。
+ */
 import { computed } from 'vue'
 
 const props = defineProps({
