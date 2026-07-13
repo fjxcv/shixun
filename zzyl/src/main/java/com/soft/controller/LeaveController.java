@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.soft.common.Result;
 import com.soft.dto.PageQueryDto;
 import com.soft.dto.UserLineDto;
+import com.soft.mapper.BedMapper;
 import com.soft.mapper.LeaveMapper;
+import com.soft.pojo.Bed;
 import com.soft.pojo.Leave;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,27 +20,74 @@ import java.util.Map;
 
 /**
  * 请假管理：分页、详情、申请、审批、销假、撤销。
- * 业务状态 status：待审批 → 请假中 / 已拒绝；请假中/超时未归 → 已返回；待审批可撤销为已关闭。
- * 与协同模块映射关系见 CollaborationController#mapLeaveFlow。
+ * 业务状态 status：待审批 → 请假中/已拒绝；请假中/超时未归 → 已返回；待审批可撤销为已关闭。
+ * 列表中「请假中/超时未归」按预计返回时间动态判定；协同映射见 CollaborationController#mapLeaveFlow。
  */
 @RestController
 @RequestMapping("/leave")
 public class LeaveController {
     @Autowired private LeaveMapper leaveMapper;
+    @Autowired private BedMapper bedMapper;
 
-    /** 请假单分页；status=全部 时不过滤状态。 */
+    /**
+     * 请假单分页。
+     * status=全部 时不过滤；请假中/超时未归按预计返回时间过滤，返回前动态刷新展示状态。
+     */
     @PostMapping("/page")
     public Result<List<Leave>> page(@RequestBody PageQueryDto q) {
         LambdaQueryWrapper<Leave> w = new LambdaQueryWrapper<>();
-        if (StringUtils.hasText(q.getDocNo())) w.like(Leave::getDocNo, q.getDocNo());
+        if (StringUtils.hasText(q.getDocNo())) w.eq(Leave::getDocNo, q.getDocNo());
         if (StringUtils.hasText(q.getElderName())) w.like(Leave::getElderName, q.getElderName());
-        if (StringUtils.hasText(q.getElderIdcard())) w.like(Leave::getElderIdcard, q.getElderIdcard());
-        if (StringUtils.hasText(q.getStatus()) && !"全部".equals(q.getStatus())) w.eq(Leave::getStatus, q.getStatus());
+        // 身份证号精确匹配
+        if (StringUtils.hasText(q.getElderIdcard())) w.eq(Leave::getElderIdcard, q.getElderIdcard());
+        LocalDateTime now = LocalDateTime.now();
+        if (StringUtils.hasText(q.getStatus()) && !"全部".equals(q.getStatus())) {
+            switch (q.getStatus()) {
+                case "待审批":
+                    w.eq(Leave::getStatus, "待审批");
+                    break;
+                case "已返回":
+                    w.eq(Leave::getStatus, "已返回");
+                    break;
+                case "已拒绝":
+                case "已关闭":
+                    w.eq(Leave::getStatus, q.getStatus());
+                    break;
+                case "请假中":
+                    // 未终态且预计返回时间在当前之后
+                    w.notIn(Leave::getStatus, "已返回", "已拒绝", "已关闭", "待审批")
+                     .gt(Leave::getExpectReturnTime, now);
+                    break;
+                case "超时未归":
+                    // 未终态且预计返回时间已到/超时
+                    w.notIn(Leave::getStatus, "已返回", "已拒绝", "已关闭", "待审批")
+                     .le(Leave::getExpectReturnTime, now);
+                    break;
+                default:
+                    w.eq(Leave::getStatus, q.getStatus());
+                    break;
+            }
+        }
         w.orderByDesc(Leave::getCreateTime);
         Page<Leave> page = leaveMapper.selectPage(new Page<>(q.getPageNum(), q.getPageSize()), w);
+        // 动态计算展示状态（不回写库，仅影响本次列表）
+        for (Leave l : page.getRecords()) {
+            if ("已返回".equals(l.getStatus()) || "已拒绝".equals(l.getStatus()) || "已关闭".equals(l.getStatus())) {
+                continue;
+            }
+            if ("待审批".equals(l.getStatus())) {
+                continue;
+            }
+            if (l.getExpectReturnTime() != null && !l.getExpectReturnTime().isAfter(now)) {
+                l.setStatus("超时未归");
+            } else {
+                l.setStatus("请假中");
+            }
+        }
         return Result.ok(page.getRecords(), page.getTotal());
     }
 
+    /** 请假单详情。 */
     @GetMapping("/detail")
     public Result<Leave> detail(@RequestParam("id") Long id) {
         Leave l = leaveMapper.selectById(id);
@@ -82,7 +131,7 @@ public class LeaveController {
         return Result.ok("saved");
     }
 
-    /** 从 Session 补全 applicant/creator（与登录 realname 一致） */
+    /** 从 Session 补全 applicant/creator（与登录 realname 一致）。 */
     private void fillApplicantFromSession(Leave leave, HttpSession session) {
         String name = null;
         if (session != null) {
@@ -96,7 +145,9 @@ public class LeaveController {
         if (!StringUtils.hasText(leave.getCreator())) leave.setCreator(name);
     }
 
-    /** 审批：仅「待审批」可操作。通过 → 请假中；拒绝 → 已拒绝。 */
+    /**
+     * 审批：仅「待审批」可操作。通过 → 请假中；拒绝 → 已拒绝。
+     */
     @PostMapping("/approve")
     public Result<String> approve(@RequestBody Map<String, Object> body) {
         Number idNum = (Number) body.get("id");
@@ -118,7 +169,11 @@ public class LeaveController {
         return Result.ok(db.getStatus());
     }
 
-    /** 销假：仅请假中或超时未归可标记已返回。 */
+    /**
+     * 销假：仅请假中或超时未归可标记已返回。
+     * 优先使用前端传入的实际返回时间，否则取当前时间；并按小时差折算实际请假天数。
+     * 销假后尝试将对应床位从「请假中」恢复为「已入住」。
+     */
     @PostMapping("/return")
     public Result<String> returnBack(@RequestBody Leave leave) {
         if (leave.getId() == null) return Result.fail("请假单不存在");
@@ -128,12 +183,37 @@ public class LeaveController {
             return Result.fail("仅请假中可销假");
         }
         db.setStatus("已返回");
-        db.setActualReturnTime(LocalDateTime.now());
+        // 优先使用前端传入的实际返回时间
+        if (leave.getActualReturnTime() != null) {
+            db.setActualReturnTime(leave.getActualReturnTime());
+        } else {
+            db.setActualReturnTime(LocalDateTime.now());
+        }
+        // 按小时差折算实际请假天数（最少 0.5 天，不足 1 天记 1）
+        if (db.getStartTime() != null && db.getActualReturnTime() != null) {
+            long diffHours = java.time.Duration.between(db.getStartTime(), db.getActualReturnTime()).toHours();
+            double days = diffHours / 24.0;
+            if (days < 0.5) days = 0.5;
+            else if (days < 1) days = 1;
+            else days = Math.round(days);
+            db.setLeaveDays((int) days);
+        }
         if (StringUtils.hasText(leave.getReturnRemark())) db.setReturnRemark(leave.getReturnRemark());
         if (StringUtils.hasText(leave.getCancelUser())) db.setCancelUser(leave.getCancelUser());
         else if (StringUtils.hasText(leave.getApplicant())) db.setCancelUser(leave.getApplicant());
         db.setCancelTime(LocalDateTime.now());
         leaveMapper.updateById(db);
+        // 同步更新床位：请假中 → 已入住
+        try {
+            List<Bed> beds = bedMapper.selectList(
+                new LambdaQueryWrapper<Bed>().eq(Bed::getElderName, db.getElderName()));
+            for (Bed bed : beds) {
+                if ("请假中".equals(bed.getStatus())) {
+                    bed.setStatus("已入住");
+                    bedMapper.updateById(bed);
+                }
+            }
+        } catch (Exception ignored) {}
         return Result.ok("ok");
     }
 

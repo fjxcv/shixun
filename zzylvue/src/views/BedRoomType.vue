@@ -26,6 +26,7 @@
               <div class="room-type">房间类型：{{ item.room.roomTypeName }}</div>
             </div>
             <div class="room-ops">
+              <el-button link type="primary" @click="viewRoom(item)">查看</el-button>
               <el-button link type="danger" @click="deleteRoom(item.room.id)">删除</el-button>
               <el-button link type="primary" @click="openRoomDialog(item.room)">编辑</el-button>
               <el-button type="primary" size="small" @click="openBedDialog(item.room)">新增床位</el-button>
@@ -51,17 +52,39 @@
         <el-form-item label="房间号"><el-input v-model="roomForm.roomNo" maxlength="5" show-word-limit /></el-form-item>
         <el-form-item label="房间类型">
           <el-select v-model="roomForm.roomTypeName" style="width:100%">
-            <el-option label="四人间" value="四人间" />
-            <el-option label="三人间" value="三人间" />
-            <el-option label="两人间" value="两人间" />
-            <el-option label="普通单人间" value="普通单人间" />
-            <el-option label="豪华单人间" value="豪华单人间" />
+            <el-option v-for="rt in roomTypeOptions" :key="rt.name" :label="rt.name" :value="rt.name" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="roomDialog=false">取消</el-button>
         <el-button type="primary" @click="saveRoom">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="roomDetailVisible" title="房间详情" width="600px" destroy-on-close>
+      <template v-if="roomDetailData">
+        <div style="display:flex;gap:24px;margin-bottom:20px">
+          <div>房间号：{{ roomDetailData.room.roomNo }}</div>
+          <div>房间类型：{{ roomDetailData.room.roomTypeName }}</div>
+          <div>总床位数：{{ roomDetailData.totalBeds }}</div>
+          <div>入住床位数：{{ roomDetailData.occupiedBeds }}</div>
+          <div>入住率：{{ roomDetailData.occupancyRate }}%</div>
+        </div>
+        <el-table :data="roomDetailData.beds" border stripe size="small" max-height="300">
+          <el-table-column prop="bedNo" label="床位号" width="100" />
+          <el-table-column label="老人姓名" width="100">
+            <template #default="{ row }">{{ row.status === '空闲' ? '—' : (row.elderName || '—') }}</template>
+          </el-table-column>
+          <el-table-column label="护理等级" width="120">
+            <template #default="{ row }">{{ row.nursingLevel || '—' }}</template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.status === '已入住' ? 'success' : row.status === '请假中' ? 'warning' : 'info'" size="small">{{ row.status }}</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
       </template>
     </el-dialog>
 
@@ -98,8 +121,16 @@ const roomDialog = ref(false)
 const bedDialog = ref(false)
 const roomForm = reactive({ id: null, floorId: null, roomNo: '', roomTypeName: '四人间' })
 const bedForm = reactive({ id: null, roomId: null, bedNo: '', elderName: '', status: '空闲' })
+const roomDetailVisible = ref(false)
+const roomDetailData = ref(null)
+const roomTypeOptions = ref([])
 
-onMounted(() => initFloors())
+onMounted(() => {
+  initFloors()
+  axios.get('/roomType/list').then(res => {
+    if (res.data?.code === 200) roomTypeOptions.value = (res.data.data || []).filter(r => r.status === 1)
+  }).catch(() => {})
+})
 
 function bedStatusClass(status) {
   return status === '已入住' ? 'occupied' : status === '请假中' ? 'leave' : 'idle'
@@ -216,6 +247,32 @@ function saveBed() {
       ElMessage.error(res.data?.msg || '保存失败')
     }
   }).catch(() => ElMessage.error('保存失败'))
+}
+
+function viewRoom(item) {
+  const beds = (item.beds || []).map(b => ({
+    ...b,
+    nursingLevel: '—'
+  }))
+  const totalBeds = beds.length
+  const occupiedBeds = beds.filter(b => b.status !== '空闲').length
+  const occupancyRate = totalBeds ? Math.round(occupiedBeds / totalBeds * 100) : 0
+  // 异步获取入住护理等级
+  const names = beds.filter(b => b.elderName).map(b => b.elderName)
+  if (names.length) {
+    axios.post('/checkin/page', { pageNum: 1, pageSize: 200 }).then(res => {
+      if (res.data.code !== 200) return
+      const list = res.data.data || []
+      const map = {}
+      list.forEach(c => { if (c.elderName) map[c.elderName] = c.nursingLevel })
+      beds.forEach(b => {
+        if (map[b.elderName]) b.nursingLevel = map[b.elderName]
+      })
+      roomDetailData.value = { room: item.room, beds, totalBeds, occupiedBeds, occupancyRate }
+    }).catch(() => {})
+  }
+  roomDetailData.value = { room: item.room, beds, totalBeds, occupiedBeds, occupancyRate }
+  roomDetailVisible.value = true
 }
 
 function deleteBed(id) {
