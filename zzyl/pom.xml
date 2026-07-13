@@ -84,7 +84,7 @@
         </dependency>
 
 
-        <!-- 引入 springai alibaba DashScope 模型适配的1�7 Starter
+        <!-- 引入 springai alibaba DashScope 模型适配的1�7 Starter
         -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
@@ -147,7 +147,6 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.soft.ZzylApplication</mainClass>
-                    <skip>true</skip>
                 </configuration>
                 <executions>
                     <execution>
@@ -155,6 +154,9 @@
                         <goals>
                             <goal>repackage</goal>
                         </goals>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

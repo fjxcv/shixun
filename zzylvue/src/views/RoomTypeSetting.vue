@@ -8,8 +8,9 @@
     <el-table v-loading="loading" :data="tableData" border stripe>
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column label="房间图片" width="90">
-        <template #default>
-          <div class="room-thumb" />
+        <template #default="{ row }">
+          <el-image v-if="row.image" :src="row.image" style="width:48px;height:48px;border-radius:4px" fit="cover" />
+          <div v-else class="room-thumb" />
         </template>
       </el-table-column>
       <el-table-column prop="name" label="房间类型" width="120" />
@@ -41,11 +42,32 @@
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑房型' : '新增房型'" width="520px" destroy-on-close>
       <el-form label-width="100px">
-        <el-form-item label="房间类型" required><el-input v-model="form.name" /></el-form-item>
+        <el-form-item label="房间类型" required><el-input v-model="form.name" maxlength="10" show-word-limit /></el-form-item>
         <el-form-item label="床位费用" required>
           <el-input-number v-model="form.price" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="房型介绍"><el-input v-model="form.intro" type="textarea" /></el-form-item>
+        <el-form-item label="房型图片">
+          <el-upload
+            :action="uploadUrl"
+            :on-success="handleUploadSuccess"
+            :on-remove="handleUploadRemove"
+            :limit="1"
+            list-type="picture-card"
+            :file-list="fileList"
+            name="mf"
+            accept=".png,.jpg,.jpeg"
+          >
+            <el-icon><Plus /></el-icon>
+            <template #tip><div style="font-size:12px;color:#999">图片不超过 2M，仅支持 PNG/JPG</div></template>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-radio-group v-model="form.status">
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="房型介绍"><el-input v-model="form.intro" type="textarea" maxlength="50" show-word-limit /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible=false">取消</el-button>
@@ -59,12 +81,15 @@
 import { onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import PageCard from '@/components/PageCard.vue'
 
 const tableData = ref([])
 const dialogVisible = ref(false)
 const loading = ref(false)
-const defaultForm = () => ({ id: null, name: '', price: 800, intro: '\u623f\u95f4\u5185\u8bbe\u670924\u5c0f\u65f6cctv\u76d1\u63a7', creator: '\u987e\u5ef7\u70ec', status: 1 })
+const fileList = ref([])
+const uploadUrl = `${location.protocol}//${location.hostname}:8080/upload`
+const defaultForm = () => ({ id: null, name: '', price: 800, intro: '\u623f\u95f4\u5185\u8bbe\u670924\u5c0f\u65f6cctv\u76d1\u63a7', image: '', creator: '\u987e\u5ef7\u70ec', status: 1 })
 const form = reactive(defaultForm())
 
 onMounted(() => loadList())
@@ -89,11 +114,24 @@ function loadList() {
 
 function openDialog(row) {
   Object.assign(form, defaultForm())
+  fileList.value = []
   if (row) {
     Object.assign(form, row)
     form.price = Number(row.price) || 0
+    if (row.image) fileList.value = [{ name: row.image, url: row.image }]
   }
   dialogVisible.value = true
+}
+
+function handleUploadSuccess(res, file) {
+  if (res?.code === 200 && res.data) {
+    form.image = res.data
+    file.url = res.data
+  }
+}
+
+function handleUploadRemove() {
+  form.image = ''
 }
 
 function save() {

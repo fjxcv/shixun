@@ -43,7 +43,7 @@
       <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
           <el-button v-if="row.status === '待审批'" link type="warning" @click="openApprove(row)">审批</el-button>
-          <el-button v-if="canReturn(row.status)" link type="primary" @click="returnBack(row)">销假</el-button>
+          <el-button v-if="canReturn(row.status)" link type="primary" @click="openReturn(row)">销假</el-button>
           <el-button link type="primary" @click="view(row)">查看</el-button>
         </template>
       </el-table-column>
@@ -79,13 +79,13 @@
           <el-input v-model="form.elderIdcard" readonly placeholder="自动填写" />
         </el-form-item>
         <el-form-item label="联系方式">
-          <el-input v-model="form.elderPhone" readonly />
+          <el-input v-model="form.elderPhone" placeholder="选填" />
         </el-form-item>
         <el-form-item label="入住床位">
-          <el-input v-model="form.bedInfo" readonly />
+          <el-input v-model="form.bedInfo" placeholder="选填" />
         </el-form-item>
         <el-form-item label="护理等级">
-          <el-input v-model="form.nursingLevel" readonly />
+          <el-input v-model="form.nursingLevel" placeholder="选填" />
         </el-form-item>
         <el-form-item label="请假开始时间" required>
           <el-date-picker v-model="form.startTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" style="width:100%" />
@@ -114,6 +114,31 @@
         <el-button type="primary" @click="submitApprove">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="returnVisible" title="填写返回时间" width="480px" destroy-on-close>
+      <el-form :model="returnForm" label-width="130px">
+        <el-form-item label="实际返回时间" required>
+          <el-date-picker
+            v-model="returnForm.actualReturnTime"
+            type="datetime"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :disabled-date="disabledReturnDate"
+            style="width:100%"
+            @change="calcActualDays"
+          />
+        </el-form-item>
+        <el-form-item label="实际请假天数">
+          <el-input v-model="returnForm.actualLeaveDays" readonly />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="returnForm.remark" type="textarea" maxlength="50" show-word-limit placeholder="请输入" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="returnVisible=false">取消</el-button>
+        <el-button type="primary" @click="submitReturn">确定</el-button>
+      </template>
+    </el-dialog>
   </PageCard>
 </template>
 
@@ -139,6 +164,9 @@ const dialogVisible = ref(false)
 const approveVisible = ref(false)
 const approveRow = ref(null)
 const approvalResult = ref('通过')
+const returnVisible = ref(false)
+const returnRow = ref(null)
+const returnForm = reactive({ actualReturnTime: '', actualLeaveDays: '', remark: '' })
 const elderOptions = ref([])
 const elderMap = reactive({})
 
@@ -175,19 +203,18 @@ function canReturn(s) {
 }
 
 function loadElders() {
-  axios.post('/checkin/page', { pageNum: 1, pageSize: 200 }).then(res => {
+  axios.post('/contract/page', { pageNum: 1, pageSize: 200 }).then(res => {
     if (res.data.code !== 200) return
-    const list = (res.data.data || []).filter(c => c.flowStatus === '已完成')
+    const list = res.data.data || []
     const map = {}
     list.forEach(c => {
-      if (!c.elderName) return
-      // prefer latest completed record per elder
+      if (!c.elderName || map[c.elderName]) return
       map[c.elderName] = {
         elderName: c.elderName,
         elderIdcard: c.elderIdcard || '',
         elderPhone: c.elderPhone || '',
-        bedInfo: c.bedNo || '',
-        nursingLevel: c.nursingLevel || ''
+        bedInfo: '',
+        nursingLevel: ''
       }
     })
     elderOptions.value = Object.values(map)
@@ -243,14 +270,8 @@ async function save() {
     ElMessage.warning('请填写请假原因')
     return
   }
-  try {
-    const info = await axios.get('/loadInfo')
-    const name = info.data?.realname || info.data?.uname || ''
-    if (name) {
-      form.applicant = name
-      form.creator = name
-    }
-  } catch (e) { /* ignore */ }
+  form.applicant = '顾廷烨'
+  form.creator = '顾廷烨'
   axios.post('/leave/save', { ...form }).then(res => {
     if (res.data.code === 200) {
       ElMessage.success('提交成功，待审批')
@@ -266,13 +287,54 @@ async function save() {
   })
 }
 
-function returnBack(row) {
-  axios.post('/leave/return', { id: row.id, returnRemark: '老人已返回' }).then(res => {
+function disabledReturnDate(time) {
+  returnRow.value = null
+  return false
+}
+
+function openReturn(row) {
+  returnRow.value = row
+  const now = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  returnForm.actualReturnTime = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+  calcActualDays()
+  returnForm.remark = ''
+  returnVisible.value = true
+}
+
+function calcActualDays() {
+  if (!returnForm.actualReturnTime || !returnRow.value?.startTime) {
+    returnForm.actualLeaveDays = ''
+    return
+  }
+  const start = new Date(returnRow.value.startTime.replace(' ', 'T'))
+  const end = new Date(returnForm.actualReturnTime.replace(' ', 'T'))
+  const diffMs = end - start
+  if (diffMs <= 0) { returnForm.actualLeaveDays = '0.5'; return }
+  const days = diffMs / (1000 * 60 * 60 * 24)
+  if (days < 0.5) returnForm.actualLeaveDays = '0.5'
+  else if (days < 1) returnForm.actualLeaveDays = '1'
+  else returnForm.actualLeaveDays = String(Math.round(days))
+}
+
+function submitReturn() {
+  if (!returnForm.actualReturnTime) {
+    ElMessage.warning('请选择实际返回时间')
+    return
+  }
+  axios.post('/leave/return', {
+    id: returnRow.value.id,
+    actualReturnTime: returnForm.actualReturnTime,
+    returnRemark: returnForm.remark || '老人已返回',
+    cancelUser: '顾廷烨',
+    applicant: '顾廷烨'
+  }).then(res => {
     if (res.data.code === 200) {
       ElMessage.success('销假成功')
+      returnVisible.value = false
       loadList(query.pageNum)
     } else ElMessage.error(res.data.msg || '销假失败')
-  })
+  }).catch(() => ElMessage.error('销假失败'))
 }
 
 function view(row) {
