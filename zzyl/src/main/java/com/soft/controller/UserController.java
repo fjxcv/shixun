@@ -54,7 +54,7 @@ public class UserController {
     }
 
     @RequestMapping("/updateUser")
-    public Map<String, Object> updateUser(@RequestBody User userDto) {
+    public Map<String, Object> updateUser(@RequestBody User userDto, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", 400);
         result.put("msg", "\u66f4\u65b0\u7528\u6237\u4fe1\u606f\u5931\u8d25");
@@ -70,8 +70,15 @@ public class UserController {
         if (StringUtils.hasText(userDto.getSex())) user.setSex(userDto.getSex());
         if (StringUtils.hasText(userDto.getImage())) user.setImage(userDto.getImage());
         userService.updateById(user);
+        Object online = session.getAttribute("online");
+        if (online instanceof UserLineDto dto && dto.getId() != null && dto.getId().equals(user.getId())) {
+            dto.setRealname(user.getRealname());
+            dto.setImage(user.getImage());
+            session.setAttribute("online", dto);
+        }
         result.put("code", 200);
         result.put("msg", "\u66f4\u65b0\u7528\u6237\u4fe1\u606f\u6210\u529f");
+        result.put("image", user.getImage());
         return result;
     }
 

@@ -9,9 +9,8 @@
       <el-descriptions-item label="费用期限">{{ feePeriod }}</el-descriptions-item>
       <el-descriptions-item label="护理等级">{{ data.nursingLevel || '—' }}</el-descriptions-item>
       <el-descriptions-item label="入住床位">{{ data.bedInfo || '—' }}</el-descriptions-item>
-      <el-descriptions-item label="签约合同">{{ data.contractName || '—' }}</el-descriptions-item>
+      <el-descriptions-item label="签订合同">{{ data.contractName || '—' }}</el-descriptions-item>
       <el-descriptions-item label="养老顾问">{{ data.consultant || '—' }}</el-descriptions-item>
-      <el-descriptions-item label="护理员">{{ data.caregivers || '—' }}</el-descriptions-item>
     </el-descriptions>
 
     <el-divider />
@@ -37,15 +36,16 @@
     <template v-if="showBill">
       <el-divider />
       <h4>账单明细</h4>
-      <p>应退 3820.00元 · 欠费 6000.00元 · 余额 4000.00元</p>
+      <p>应退 {{ billReceivable }}元 · 欠费 {{ billArrears }}元 · 余额 {{ billBalance }}元</p>
       <p>最终退款金额 = 应退 - 欠费 + 余额 = {{ refundDisplay }}元</p>
     </template>
 
     <template v-if="showSettlement">
       <el-divider />
       <h4>完成账单清算</h4>
-      <p>退款信息：剩余预付款 {{ data.refundAmount ?? '—' }} 元</p>
-      <p>退款方式：现金 · 共退款 {{ data.refundAmount ?? '—' }} 元，已结清</p>
+      <p>应退 {{ billReceivable }}元 · 欠费 {{ billArrears }}元 · 余额 {{ billBalance }}元</p>
+      <p>退款信息：剩余预付款 {{ refundDisplay }} 元</p>
+      <p>退款方式：现金 · 共退款 {{ refundDisplay }} 元，已结清</p>
     </template>
   </div>
 </template>
@@ -65,8 +65,26 @@ const feePeriod = computed(() => {
   return feeStart && feeEnd ? `${feeStart} — ${feeEnd}` : '—'
 })
 
+function num(v) {
+  if (v == null || v === '') return '—'
+  const n = Number(v)
+  return Number.isFinite(n) ? n.toFixed(2) : String(v)
+}
+
+const billReceivable = computed(() => num(props.data.billReceivable))
+const billArrears = computed(() => num(props.data.billArrears))
+const billBalance = computed(() => num(props.data.billBalance))
+
 const refundDisplay = computed(() => {
-  if (props.data.refundAmount != null) return props.data.refundAmount
-  return '-380.00'
+  if (props.data.refundAmount != null && props.data.refundAmount !== '') {
+    return num(props.data.refundAmount)
+  }
+  const a = Number(props.data.billReceivable)
+  const b = Number(props.data.billArrears)
+  const c = Number(props.data.billBalance)
+  if ([a, b, c].every(x => Number.isFinite(x))) {
+    return (a - b + c).toFixed(2)
+  }
+  return '—'
 })
 </script>

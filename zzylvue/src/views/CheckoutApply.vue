@@ -15,7 +15,6 @@
           <el-form-item label="联系方式"><el-input v-model="form.elderPhone" readonly /></el-form-item>
           <el-form-item label="护理等级"><el-input v-model="form.nursingLevel" readonly /></el-form-item>
           <el-form-item label="签约合同"><el-input v-model="form.contractName" readonly /></el-form-item>
-          <el-form-item label="护理员"><el-input v-model="form.caregivers" readonly /></el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="老人身份证号"><el-input v-model="form.elderIdcard" readonly /></el-form-item>
@@ -77,7 +76,6 @@ const form = reactive({
   bedInfo: '',
   contractName: '',
   consultant: '',
-  caregivers: '',
   checkoutDate: '',
   reason: '',
   remark: '',
@@ -85,7 +83,7 @@ const form = reactive({
   creator: ''
 })
 
-const feePeriod = computed(() => form.feeStart && form.feeEnd ? `${form.feeStart} — ${form.feeEnd}` : '')
+const feePeriod = computed(() => form.feeStart && form.feeEnd ? `${form.feeStart} ~ ${form.feeEnd}` : '')
 
 onMounted(loadElders)
 
@@ -93,35 +91,24 @@ function loadElders() {
   axios.post('/checkin/page', { pageNum: 1, pageSize: 100 }).then(res => {
     if (res.data.code === 200) {
       const list = (res.data.data || []).filter(c => c.flowStatus === '已完成')
-      elderOptions.value = list.map(c => c.elderName).filter(Boolean)
+      elderOptions.value = [...new Set(list.map(c => c.elderName).filter(Boolean))]
       list.forEach(c => {
         elderMap[c.elderName] = {
-          elderIdcard: c.elderIdcard,
-          elderPhone: c.elderPhone,
-          nursingLevel: c.nursingLevel,
-          bedInfo: c.bedNo,
-          contractName: c.contractName,
-          consultant: c.applicant || c.creator,
-          caregivers: '',
-          feeStart: c.periodStart,
-          feeEnd: c.periodEnd
+          elderIdcard: c.elderIdcard || '',
+          elderPhone: c.elderPhone || '',
+          nursingLevel: c.nursingLevel || '',
+          bedInfo: c.bedNo || '',
+          contractName: c.contractName || '',
+          consultant: c.applicant || c.creator || '',
+          feeStart: c.periodStart || '',
+          feeEnd: c.periodEnd || ''
         }
       })
+      if (!elderOptions.value.length) {
+        ElMessage.warning('暂无已完成入住的老人，请先完成入住流程')
+      }
     }
-  }).catch(() => {
-    elderOptions.value = ['高启强']
-    elderMap['高启强'] = {
-      elderIdcard: '230203197702221029',
-      elderPhone: '13898988888',
-      nursingLevel: '特级护理等级',
-      bedInfo: '101床位',
-      contractName: '高启强长租合同.pdf',
-      consultant: '顾廷烨',
-      caregivers: '盛长柏、盛明兰',
-      feeStart: '2048-10-10',
-      feeEnd: '2049-10-10'
-    }
-  })
+  }).catch(() => ElMessage.error('加载老人列表失败'))
 }
 
 function onElderChange(name) {

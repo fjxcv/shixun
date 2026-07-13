@@ -6,12 +6,15 @@
         <el-form-item label="申请人"><el-input v-model="query.applicant" clearable placeholder="请输入" /></el-form-item>
         <el-form-item label="单据类别">
           <el-select v-model="query.type" clearable placeholder="请选择" style="width:120px">
-            <el-option label="入住" value="入住" /><el-option label="退住" value="退住" /><el-option label="请假" value="请假" />
+            <el-option label="入住" value="入住" />
+            <el-option label="退住" value="退住" />
+            <el-option label="请假" value="请假" />
           </el-select>
         </el-form-item>
         <el-form-item label="流程状态">
           <el-select v-model="query.flowStatus" clearable placeholder="请选择" style="width:120px">
-            <el-option label="申请中" value="申请中" /><el-option label="已完成" value="已完成" />
+            <el-option label="申请中" value="申请中" />
+            <el-option label="已完成" value="已完成" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -40,14 +43,16 @@
           <el-tag :type="flowTag(row.flowStatus)" size="small">{{ row.flowStatus }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="80" fixed="right">
+      <el-table-column label="操作" width="100" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="process(row)">{{ tabStatus === '待处理' ? '处理' : '查看' }}</el-button>
+          <el-button link type="primary" @click="process(row)">
+            {{ tabStatus === '待处理' ? (row.bizType === 'leave' ? '审批' : '处理') : '查看' }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
     <template #footer>
-      <span>共 {{ total }} 项数据</span>
+      <span>共 {{ total }} 条数据</span>
       <el-pagination background layout="sizes, prev, pager, next, jumper" :total="total"
         v-model:current-page="query.pageNum" v-model:page-size="query.pageSize"
         @current-change="loadList" @size-change="loadList(1)" />
@@ -76,13 +81,13 @@ function flowTag(s) {
 
 function loadList(page) {
   query.pageNum = page || query.pageNum
-  query.status = tabStatus.value
-  axios.post('/collab/todo/page', query).then(res => {
+  query.status = tabStatus.value === '已处理' ? '已处理' : '待处理'
+  axios.post('/collab/todo/page', { ...query }).then(res => {
     if (res.data.code === 200) {
       tableData.value = res.data.data || []
       total.value = res.data.total || 0
     }
-  })
+  }).catch(() => ElMessage.error('加载失败'))
 }
 
 function resetQuery() {
@@ -104,13 +109,6 @@ function process(row) {
   const q = { id: row.id, step: row.step || 1 }
   if (tabStatus.value === '待处理') {
     q.mode = 'form'
-    // 审批节点：非当前处理人从申请侧进入时显示审批中
-    if (row.bizType === 'checkin' && (row.step || 1) === 3) {
-      // 待办里的处理人可审批，用 form
-      q.mode = 'form'
-    } else if (row.bizType === 'checkout' && [2, 5, 6].includes(row.step || 1)) {
-      q.mode = 'form'
-    }
   }
   router.push({ path, query: q })
 }

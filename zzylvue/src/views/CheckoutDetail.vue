@@ -44,18 +44,28 @@
 
         <div v-if="step === 4" class="step-panel">
           <h4>调整账单</h4>
-          <el-form label-width="140px">
+          <el-form label-width="160px">
+            <el-form-item label="应退(元)" required>
+              <el-input-number v-model="detail.billReceivable" :precision="2" style="width:240px" @change="recalcRefund" />
+            </el-form-item>
+            <el-form-item label="欠费(元)" required>
+              <el-input-number v-model="detail.billArrears" :precision="2" style="width:240px" @change="recalcRefund" />
+            </el-form-item>
+            <el-form-item label="余额(元)" required>
+              <el-input-number v-model="detail.billBalance" :precision="2" style="width:240px" @change="recalcRefund" />
+            </el-form-item>
             <el-form-item label="最终退款金额(元)">
               <el-input-number v-model="detail.refundAmount" :precision="2" style="width:240px" />
             </el-form-item>
-            <p class="hint">应退 3820.00元 · 欠费 6000.00元 · 余额 4000.00元</p>
+            <p class="hint">退款 = 应退 - 欠费 + 余额</p>
           </el-form>
         </div>
 
         <div v-if="step === 7" class="step-panel">
           <h4>费用清算</h4>
-          <p>退款信息：剩余预付款 {{ detail.refundAmount ?? 2000 }} 元</p>
-          <p>退款方式：现金 · 共退款 {{ detail.refundAmount ?? 5520 }} 元，已结清</p>
+          <p>应退 {{ fmtMoney(detail.billReceivable) }}元 · 欠费 {{ fmtMoney(detail.billArrears) }}元 · 余额 {{ fmtMoney(detail.billBalance) }}元</p>
+          <p>退款信息：剩余预付款 {{ fmtMoney(detail.refundAmount) }} 元</p>
+          <p>退款方式：现金 · 共退款 {{ fmtMoney(detail.refundAmount) }} 元，已结清</p>
         </div>
 
         <div class="form-actions">
@@ -97,12 +107,29 @@ const approvalTitle = computed(() => {
 
 onMounted(loadDetail)
 
+function fmtMoney(v) {
+  if (v == null || v === '') return '—'
+  const n = Number(v)
+  return Number.isFinite(n) ? n.toFixed(2) : String(v)
+}
+
+function recalcRefund() {
+  const a = Number(detail.billReceivable) || 0
+  const b = Number(detail.billArrears) || 0
+  const c = Number(detail.billBalance) || 0
+  detail.refundAmount = Number((a - b + c).toFixed(2))
+}
+
 function loadDetail() {
   const id = route.query.id
   if (!id) return
   axios.get('/checkout/detail', { params: { id } }).then(res => {
     if (res.data.code === 200) {
       Object.assign(detail, res.data.data || {})
+      if (detail.billReceivable == null) detail.billReceivable = 0
+      if (detail.billArrears == null) detail.billArrears = 0
+      if (detail.billBalance == null) detail.billBalance = 0
+      if (detail.refundAmount == null) recalcRefund()
       step.value = Number(route.query.step) || Number(detail.step) || 2
     } else {
       ElMessage.error(res.data.msg || '加载详情失败')
@@ -138,6 +165,13 @@ function validateCurrent() {
       return false
     }
   }
+  if (step.value === 4) {
+    if (detail.billReceivable == null || detail.billArrears == null || detail.billBalance == null) {
+      ElMessage.warning('请填写账单金额')
+      return false
+    }
+    recalcRefund()
+  }
   return true
 }
 
@@ -149,6 +183,9 @@ function submitCurrent() {
     approvalComment: approvalComment.value,
     terminateDate: detail.terminateDate,
     terminateFile: detail.terminateFile,
+    billReceivable: detail.billReceivable,
+    billArrears: detail.billArrears,
+    billBalance: detail.billBalance,
     refundAmount: detail.refundAmount
   }
   if (!isApprovalStep.value) {

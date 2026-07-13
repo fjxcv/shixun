@@ -39,6 +39,12 @@ public class Checkout {
     private LocalDate terminateDate;
     private String terminateFile;
     private BigDecimal refundAmount;
+    /** 应退金额 */
+    private BigDecimal billReceivable;
+    /** 欠费金额 */
+    private BigDecimal billArrears;
+    /** 账户余额 */
+    private BigDecimal billBalance;
     private String creator;
     private LocalDateTime createTime;
 }

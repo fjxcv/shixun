@@ -117,6 +117,7 @@
                 <h5 class="ability-mod-title">{{ mod.name }}</h5>
                 <div v-for="q in mod.questions" :key="q.id" class="ability-card">
                   <table class="ability-table">
+                    <tbody>
                     <tr>
                       <td class="at-title" colspan="2"><span class="q-required">*</span>{{ q.num }}.{{ q.title }}</td>
                       <td class="at-score">
@@ -133,6 +134,7 @@
                         </el-radio-group>
                       </td>
                     </tr>
+                                      </tbody>
                   </table>
                 </div>
               </div>

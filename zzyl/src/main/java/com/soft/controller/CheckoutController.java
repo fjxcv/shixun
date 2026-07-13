@@ -116,8 +116,16 @@ public class CheckoutController {
             db.setTerminateDate(body.getTerminateDate());
             db.setTerminateFile(body.getTerminateFile());
         } else if (current == 4) {
-            if (body.getRefundAmount() != null) db.setRefundAmount(body.getRefundAmount());
-            else if (db.getRefundAmount() == null) db.setRefundAmount(new BigDecimal("20.00"));
+            if (body.getBillReceivable() != null) db.setBillReceivable(body.getBillReceivable());
+            if (body.getBillArrears() != null) db.setBillArrears(body.getBillArrears());
+            if (body.getBillBalance() != null) db.setBillBalance(body.getBillBalance());
+            BigDecimal receivable = db.getBillReceivable() == null ? BigDecimal.ZERO : db.getBillReceivable();
+            BigDecimal arrears = db.getBillArrears() == null ? BigDecimal.ZERO : db.getBillArrears();
+            BigDecimal balance = db.getBillBalance() == null ? BigDecimal.ZERO : db.getBillBalance();
+            BigDecimal refund = body.getRefundAmount() != null
+                    ? body.getRefundAmount()
+                    : receivable.subtract(arrears).add(balance);
+            db.setRefundAmount(refund);
         }
         db.setStep(reqStep);
         db.setStepStatus("\u8fdb\u884c\u4e2d");

@@ -2,45 +2,45 @@
   <PageCard>
     <template #filter>
       <el-form :inline="true" :model="query" class="filter-form">
-        <el-form-item label="µ¥¾Ý±àºÅ"><el-input v-model="query.docNo" clearable placeholder="ÇëÊäÈë" /></el-form-item>
-        <el-form-item label="ÀÏÈËÐÕÃû"><el-input v-model="query.elderName" clearable placeholder="ÇëÊäÈë" /></el-form-item>
-        <el-form-item label="ÀÏÈËÉí·ÝÖ¤ºÅ"><el-input v-model="query.elderIdcard" clearable placeholder="ÇëÊäÈë" /></el-form-item>
-        <el-form-item label="Èë×¡ÈÕÆÚ">
+        <el-form-item label="å•æ®ç¼–å·"><el-input v-model="query.docNo" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
+        <el-form-item label="è€äººå§“å"><el-input v-model="query.elderName" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
+        <el-form-item label="è€äººèº«ä»½è¯å·"><el-input v-model="query.elderIdcard" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
+        <el-form-item label="å…¥ä½æ—¥æœŸ">
           <el-date-picker v-model="dateRange" type="daterange" value-format="YYYY-MM-DD"
-            range-separator="ÖÁ" start-placeholder="¿ªÊ¼ÈÕÆÚ" end-placeholder="½áÊøÈÕÆÚ"
+            range-separator="è‡³" start-placeholder="å¼€å§‹æ—¥æœŸ" end-placeholder="ç»“æŸæ—¥æœŸ"
             style="width:240px" />
         </el-form-item>
         <el-form-item>
-          <el-button @click="resetQuery">ÖØÖÃ</el-button>
-          <el-button type="primary" @click="loadList(1)">ËÑË÷</el-button>
+          <el-button @click="resetQuery">é‡ç½®</el-button>
+          <el-button type="primary" @click="loadList(1)">æœç´¢</el-button>
         </el-form-item>
       </el-form>
     </template>
     <template #toolbar>
       <span />
-      <el-button type="primary" @click="$router.push('/CheckinApply')">·¢ÆðÈë×¡ÉêÇë</el-button>
+      <el-button type="primary" @click="$router.push('/CheckinApply')">å‘èµ·å…¥ä½ç”³è¯·</el-button>
     </template>
     <el-table :data="tableData" border stripe>
-      <el-table-column type="index" label="ÐòºÅ" width="60" />
-      <el-table-column prop="docNo" label="µ¥¾Ý±àºÅ" min-width="160" />
-      <el-table-column prop="elderName" label="ÀÏÈËÐÕÃû" width="100" />
-      <el-table-column prop="elderIdcard" label="ÀÏÈËÉí·ÝÖ¤ºÅ" min-width="170" />
-      <el-table-column prop="bedNo" label="Èë×¡´²Î»" width="100" />
-      <el-table-column label="Èë×¡¿ªÊ¼ÈÕÆÚ" width="130">
+      <el-table-column type="index" label="åºå·" width="60" />
+      <el-table-column prop="docNo" label="å•æ®ç¼–å·" min-width="160" />
+      <el-table-column prop="elderName" label="è€äººå§“å" width="100" />
+      <el-table-column prop="elderIdcard" label="è€äººèº«ä»½è¯å·" min-width="170" />
+      <el-table-column prop="bedNo" label="å…¥ä½åºŠä½" width="100" />
+      <el-table-column label="å…¥ä½å¼€å§‹æ—¥æœŸ" width="130">
         <template #default="{ row }">{{ row.step >= 4 ? row.periodStart : '--' }}</template>
       </el-table-column>
-      <el-table-column prop="checkinDate" label="Èë×¡ÈÕÆÚ" width="120" />
-      <el-table-column prop="flowStatus" label="Á÷³Ì×´Ì¬" width="100" />
-      <el-table-column prop="creator" label="´´½¨ÈË" width="90" />
-      <el-table-column prop="createTime" label="´´½¨Ê±¼ä" min-width="160" />
-      <el-table-column label="²Ù×÷" width="80" fixed="right">
+      <el-table-column prop="checkinDate" label="å…¥ä½æ—¥æœŸ" width="120" />
+      <el-table-column prop="flowStatus" label="æµç¨‹çŠ¶æ€" width="100" />
+      <el-table-column prop="creator" label="åˆ›å»ºäºº" width="90" />
+      <el-table-column prop="createTime" label="åˆ›å»ºæ—¶é—´" min-width="160" />
+      <el-table-column label="æ“ä½œ" width="80" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="view(row)">²é¿´</el-button>
+          <el-button link type="primary" @click="view(row)">æŸ¥çœ‹</el-button>
         </template>
       </el-table-column>
     </el-table>
     <template #footer>
-      <span>¹² {{ total }} ÏîÊý¾Ý</span>
+      <span>å…± {{ total }} é¡¹æ•°æ®</span>
       <el-pagination background layout="sizes, prev, pager, next, jumper" :total="total"
         v-model:current-page="query.pageNum" v-model:page-size="query.pageSize"
         @current-change="loadList" @size-change="loadList(1)" />

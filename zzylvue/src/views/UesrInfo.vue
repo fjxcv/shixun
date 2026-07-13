@@ -65,6 +65,12 @@ const imageUrl = ref('')
 
 onMounted(() => loadShowInfo())
 
+function notifyAvatar(url) {
+  if (!url) return
+  localStorage.setItem('zzyl_avatar', url)
+  window.dispatchEvent(new CustomEvent('zzyl-avatar-updated', { detail: url }))
+}
+
 function resolveImage(url) {
   if (!url || url === 'ok') return DEFAULT_AVATAR
   if (url.startsWith('http://') || url.startsWith('https://')) return url
@@ -80,8 +86,8 @@ function loadShowInfo() {
     imageUrl.value = resolveImage(obj.image)
   }).catch(() => {
     Object.assign(userInfo, {
-      id: 1, realname: '顾廷烨', email: 'gutingye@zzyl.com', department: '入住部',
-      job: '部门主管', role: '护理组主管', phone: '13898988888', sex: '男', image: DEFAULT_AVATAR
+      id: 1, realname: '', email: '', department: '',
+      job: '', role: '', phone: '', sex: '男', image: DEFAULT_AVATAR
     })
     imageUrl.value = DEFAULT_AVATAR
   })
@@ -112,8 +118,11 @@ function uploadAvatar(option) {
       userInfo.image = imageUrl.value
       ElMessage.success('头像上传成功')
       option.onSuccess && option.onSuccess(res.data)
+      notifyAvatar(imageUrl.value)
       if (userInfo.id) {
-        axios.post('/updateUser', { id: userInfo.id, image: userInfo.image }).catch(() => {})
+        axios.post('/updateUser', { id: userInfo.id, image: userInfo.image }).then(() => {
+          notifyAvatar(imageUrl.value)
+        }).catch(() => {})
       }
     } else {
       ElMessage.error(res.data?.msg || '头像上传失败')
@@ -137,6 +146,7 @@ function saveUserInfo() {
   axios.post('/updateUser', userInfo).then(res => {
     if (res.data.code === 200) {
       ElMessage.success(res.data.msg || '保存成功')
+      notifyAvatar(imageUrl.value || userInfo.image)
     } else {
       ElMessage.error(res.data.msg || '保存失败')
     }

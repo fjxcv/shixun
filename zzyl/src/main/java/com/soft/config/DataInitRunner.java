@@ -33,15 +33,23 @@ public class DataInitRunner implements CommandLineRunner {
     public void run(String... args) {
         ensureSchema();
         seedUserIfNeeded();
+        clearWorkflowDemoData();
         if (reservationMapper.selectCount(null) == 0) {
             seedData();
             return;
         }
-        if (checkinMapper.selectCount(null) == 0) {
-            seedCheckinOnly();
-        }
         if (floorMapper.selectCount(null) == 0) {
             seedFloorsOnly();
+        }
+    }
+
+    /** 清理协同相关演示种子（入退/请假），避免污染待办与申请列表 */
+    private void clearWorkflowDemoData() {
+        try {
+            jdbcTemplate.update("DELETE FROM t_leave WHERE doc_no LIKE 'QJ2048%'");
+            jdbcTemplate.update("DELETE FROM t_checkout WHERE doc_no LIKE 'TZ2048%'");
+            jdbcTemplate.update("DELETE FROM t_checkin WHERE elder_idcard LIKE '23020319970122102%'");
+        } catch (Exception ignored) {
         }
     }
 
@@ -49,6 +57,9 @@ public class DataInitRunner implements CommandLineRunner {
         tryAddColumn("t_checkout", "flow_status", "VARCHAR(20) DEFAULT NULL");
         tryAddColumn("t_checkout", "approval_result", "VARCHAR(20) DEFAULT NULL");
         tryAddColumn("t_checkout", "approval_comment", "VARCHAR(500) DEFAULT NULL");
+        tryAddColumn("t_checkout", "bill_receivable", "DECIMAL(12,2) DEFAULT NULL");
+        tryAddColumn("t_checkout", "bill_arrears", "DECIMAL(12,2) DEFAULT NULL");
+        tryAddColumn("t_checkout", "bill_balance", "DECIMAL(12,2) DEFAULT NULL");
         tryAddColumn("t_checkin", "ethnicity", "VARCHAR(20) DEFAULT NULL");
         tryAddColumn("t_checkin", "political_status", "VARCHAR(20) DEFAULT NULL");
         tryAddColumn("t_checkin", "religion", "VARCHAR(20) DEFAULT NULL");
@@ -264,94 +275,6 @@ public class DataInitRunner implements CommandLineRunner {
                 }
             }
         }
-
-        String[] leaveStatus = {"\u8bf7\u5047\u4e2d", "\u8d85\u65f6\u672a\u5f52", "\u5df2\u8fd4\u56de"};
-        for (int i = 0; i < 10; i++) {
-            Leave l = new Leave();
-            l.setDocNo("QJ204810101500000" + (i + 1));
-            l.setElderName(names[i % names.length]);
-            l.setElderIdcard("23020319970122102" + i);
-            l.setElderPhone("1389889887" + i);
-            l.setNursingLevel("\u91cd\u5ea6\u5931\u80fd\u7b49\u7ea7");
-            l.setBedInfo("1\u697c101\u623f\u95f41041\u5e8a\u4f4d");
-            l.setCaregivers("\u987e\u5ef7\u70ec\u3001\u76db\u660e\u5170");
-            l.setStartTime(LocalDateTime.of(2048, 10, 10, 15, 0));
-            l.setExpectReturnTime(LocalDateTime.of(2048, 10, 20, 15, 0));
-            l.setStatus(leaveStatus[i % 3]);
-            if ("\u5df2\u8fd4\u56de".equals(l.getStatus())) {
-                l.setActualReturnTime(LocalDateTime.of(2048, 10, 10, 18, 0));
-                l.setReturnRemark("\u8001\u4eba\u56de\u6765\u7684\u65f6\u5019\uff0c\u811a\u626d\u4e86");
-                l.setCancelUser("\u987e\u5ef7\u70ec");
-                l.setCancelTime(LocalDateTime.now());
-            }
-            l.setEscort("\u65e0");
-            l.setLeaveDays(11);
-            l.setReason("\u9ad8\u5148\u751f\u59b9\u59b9\u7ed3\u5a5a\uff0c\u9700\u8981\u56de\u5230\u8001\u5bb6\u5e2e\u52a9\u5f20\u7f57");
-            l.setApplicant("\u987e\u5ef7\u70ec");
-            l.setApplyTime(LocalDateTime.of(2048, 10, 5, 15, 0));
-            l.setCreator("\u987e\u5ef7\u70ec");
-            l.setCreateTime(LocalDateTime.now().minusDays(i));
-            leaveMapper.insert(l);
-        }
-
-        for (int i = 0; i < 10; i++) {
-            Checkout co = new Checkout();
-            co.setDocNo("TZ204810101500000" + (i + 1));
-            co.setElderName(names[i % names.length]);
-            co.setElderIdcard("23020319970122102" + i);
-            co.setElderPhone("1389898888" + i);
-            co.setFeeStart(LocalDate.of(2048, 10, 10));
-            co.setFeeEnd(LocalDate.of(2049, 10, 10));
-            co.setNursingLevel("\u7279\u7ea7\u62a4\u7406\u7b49\u7ea7");
-            co.setBedInfo("101\u5e8a\u4f4d");
-            co.setContractName("\u9ad8\u542f\u5f3a\u957f\u4f4f\u5408\u540c.pdf");
-            co.setContractFile("\u9ad8\u542f\u5f3a\u957f\u4f4f\u5408\u540c.pdf");
-            co.setConsultant("\u987e\u5ef7\u70ec");
-            co.setCaregivers("\u76db\u957f\u67cf\u3001\u76db\u660e\u5170\u3001\u76db\u5982\u5170");
-            co.setCheckoutDate(LocalDate.of(2048, 10, 15));
-            co.setReason("\u670d\u52a1\u4e0d\u5468");
-            co.setRemark("\u5df2\u548c\u5bb6\u5c5e\u6c9f\u901a\u8fc7");
-            co.setApplicant("\u987e\u5ef7\u70ec");
-            co.setApplyTime(LocalDateTime.of(2048, 10, 5, 15, 0));
-            co.setStep(i % 7 + 1);
-            co.setStepStatus(i % 7 == 6 ? "\u5df2\u5b8c\u6210" : "\u8fdb\u884c\u4e2d");
-            co.setCreator("\u987e\u5ef7\u70ec");
-            co.setCreateTime(LocalDateTime.now().minusDays(i));
-            checkoutMapper.insert(co);
-        }
-
-        String[] flowStatus = {"\u7533\u8bf7\u4e2d", "\u5df2\u5b8c\u6210", "\u5df2\u5173\u95ed"};
-        for (int i = 0; i < 10; i++) {
-            Checkin ci = new Checkin();
-            ci.setDocNo("RZ" + System.currentTimeMillis() + String.format("%04d", i + 10));
-            ci.setElderName(names[i % names.length]);
-            ci.setElderIdcard("23020319970122102" + i);
-            ci.setElderPhone("1389898888" + i);
-            ci.setGender(i % 2 == 0 ? "\u7537" : "\u5973");
-            ci.setBirthDate(LocalDate.of(1977, 2, 22));
-            ci.setAge(71);
-            ci.setAddress("24\u53f7\u697c3\u5355\u5143401\u5ba4");
-            ci.setBedNo("101" + (i % 4 + 1));
-            LocalDate cd = LocalDate.now().minusDays(i * 5);
-            ci.setCheckinDate(cd);
-            ci.setPeriodStart(cd);
-            ci.setPeriodEnd(cd.plusYears(1));
-            ci.setNursingLevel("\u4e2d\u5ea6\u5931\u80fd\u7b49\u7ea7");
-            ci.setDeposit(new java.math.BigDecimal("3000"));
-            ci.setNursingFee(new java.math.BigDecimal("1500"));
-            ci.setBedFee(new java.math.BigDecimal("800"));
-            ci.setStep(i % 5 + 1);
-            ci.setFlowStatus(flowStatus[i % 3]);
-            ci.setStepStatus(ci.getFlowStatus());
-            if ("\u5df2\u5b8c\u6210".equals(ci.getFlowStatus())) {
-                ci.setFinishTime(LocalDateTime.now().minusDays(i));
-            }
-            ci.setContractNo("HT" + System.currentTimeMillis() + String.format("%05d", i + 10));
-            ci.setApplicant("\u987e\u5ef7\u70e8");
-            ci.setApplyTime(LocalDateTime.now().minusDays(i * 5));
-            ci.setCreator("\u987e\u5ef7\u70e8");
-            ci.setCreateTime(LocalDateTime.now().minusDays(i));
-            checkinMapper.insert(ci);
-        }
+        // 不再种子请假/退住/入住演示数据，协同待办与申请以真实业务单据为准
     }
 }

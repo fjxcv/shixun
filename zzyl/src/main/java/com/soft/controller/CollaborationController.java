@@ -46,7 +46,13 @@ public class CollaborationController {
         List<WorkflowItemDto> all = loadAll(q);
         boolean processed = "\u5df2\u5904\u7406".equals(q.getStatus());
         all = all.stream().filter(i -> {
-            boolean pending = "\u7533\u8bf7\u4e2d".equals(i.getFlowStatus());
+            boolean pending;
+            if ("leave".equals(i.getBizType())) {
+                // 请假：仅「待审批」(step=1 且申请中) 进入待办
+                pending = "\u7533\u8bf7\u4e2d".equals(i.getFlowStatus()) && (i.getStep() == null || i.getStep() == 1);
+            } else {
+                pending = "\u7533\u8bf7\u4e2d".equals(i.getFlowStatus());
+            }
             return processed ? !pending : pending;
         }).collect(Collectors.toList());
         return pageSlice(all, q);
@@ -120,7 +126,7 @@ public class CollaborationController {
             d.setFinishTime("\u5df2\u8fd4\u56de".equals(c.getStatus()) ? fmt(c.getActualReturnTime()) : "\u2014");
             d.setFlowStatus(mapLeaveFlow(c.getStatus()));
             d.setWaitDuration(wait(c.getApplyTime()));
-            d.setStep(1);
+            d.setStep("\u5f85\u5ba1\u6279".equals(c.getStatus()) ? 1 : 2);
             d.setBizType("leave");
             return d;
         }).collect(Collectors.toList());
@@ -132,9 +138,18 @@ public class CollaborationController {
         return "\u7533\u8bf7\u4e2d";
     }
 
+    /**
+     * 请假状态映射到协同统一流程状态：
+     * 待审批 -> 申请中（进入待办）；请假中 -> 申请中（我的申请仍可见）；
+     * 已返回 -> 已完成；超时未归/已拒绝/已关闭 -> 已关闭。
+     * 待办列表仅把「待审批」视为待处理（见 todoPage）。
+     */
     private String mapLeaveFlow(String s) {
         if ("\u5df2\u8fd4\u56de".equals(s)) return "\u5df2\u5b8c\u6210";
-        if ("\u8d85\u65f6\u672a\u5f52".equals(s)) return "\u5df2\u5173\u95ed";
+        if ("\u8d85\u65f6\u672a\u5f52".equals(s) || "\u5df2\u62d2\u7edd".equals(s) || "\u5df2\u5173\u95ed".equals(s)) {
+            return "\u5df2\u5173\u95ed";
+        }
+        // 待审批、请假中
         return "\u7533\u8bf7\u4e2d";
     }
 

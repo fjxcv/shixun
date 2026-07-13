@@ -1,10 +1,31 @@
-<template>
+# -*- coding: utf-8 -*-
+"""Rewrite key Vue pages as UTF-8 using unicode escapes only."""
+from pathlib import Path
+
+ROOT = Path(r"D:/vsc-maven/zzyl-project/zzylvue/src")
+ALT = Path(r"D:/vsc-maven/zzylvue/src")
+DEFAULT_AVATAR = "https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"
+
+
+def write(rel: str, content: str):
+    for base in (ROOT, ALT):
+        p = base / rel
+        if not p.parent.exists() and base == ALT:
+            continue
+        if base == ALT and not p.parent.exists():
+            continue
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8", newline="\n")
+        print("wrote", p)
+
+
+MAIN_INDEX = r'''<template>
   <el-container class="main-layout">
     <el-header class="top-header" height="56px">
       <div class="logo-area">
-        <div class="logo-icon">中</div>
+        <div class="logo-icon">\u4e2d</div>
         <div class="logo-text">
-          <div class="logo-title">中州养老</div>
+          <div class="logo-title">\u4e2d\u5dde\u517b\u8001</div>
           <div class="logo-sub">ZHONG ZHOU YANG LAO</div>
         </div>
       </div>
@@ -20,13 +41,13 @@
         <el-dropdown trigger="click">
           <span class="user-dropdown">
             <el-avatar :size="28" :src="avatarUrl" />
-            <span>{{ realName || '管理员' }}</span>
+            <span>{{ realName || '\u7ba1\u7406\u5458' }}</span>
             <el-icon><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item @click="pwdDialogVisible = true">修改密码</el-dropdown-item>
-              <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
+              <el-dropdown-item @click="pwdDialogVisible = true">\u4fee\u6539\u5bc6\u7801</el-dropdown-item>
+              <el-dropdown-item @click="handleLogout">\u9000\u51fa\u767b\u5f55</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -54,21 +75,21 @@
 
     <div class="page-footer">Copyright @ 2019-2020 Tencent. All Rights Reserved</div>
 
-    <el-dialog v-model="pwdDialogVisible" title="修改密码" width="480px" destroy-on-close>
+    <el-dialog v-model="pwdDialogVisible" title="\u4fee\u6539\u5bc6\u7801" width="480px" destroy-on-close>
       <el-form label-width="100px">
-        <el-form-item label="原密码" required>
-          <el-input v-model="pwdForm.oldpwd" type="password" show-password placeholder="请输入" />
+        <el-form-item label="\u539f\u5bc6\u7801" required>
+          <el-input v-model="pwdForm.oldpwd" type="password" show-password placeholder="\u8bf7\u8f93\u5165" />
         </el-form-item>
-        <el-form-item label="新密码" required>
-          <el-input v-model="pwdForm.newpwd" type="password" show-password placeholder="请输入" />
+        <el-form-item label="\u65b0\u5bc6\u7801" required>
+          <el-input v-model="pwdForm.newpwd" type="password" show-password placeholder="\u8bf7\u8f93\u5165" />
         </el-form-item>
-        <el-form-item label="确认新密码" required>
-          <el-input v-model="pwdForm.newpwd2" type="password" show-password placeholder="请输入" />
+        <el-form-item label="\u786e\u8ba4\u65b0\u5bc6\u7801" required>
+          <el-input v-model="pwdForm.newpwd2" type="password" show-password placeholder="\u8bf7\u8f93\u5165" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="pwdDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="updateUserPwd">确定</el-button>
+        <el-button @click="pwdDialogVisible = false">\u53d6\u6d88</el-button>
+        <el-button type="primary" @click="updateUserPwd">\u786e\u5b9a</el-button>
       </template>
     </el-dialog>
   </el-container>
@@ -84,8 +105,8 @@ import { topMenus, findModuleByPath, getSideMenus } from '@/config/menu'
 const DEFAULT_AVATAR = 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
 const route = useRoute()
 const router = useRouter()
-const realName = ref('管理员')
-const avatarUrl = ref(localStorage.getItem('zzyl_avatar') || DEFAULT_AVATAR)
+const realName = ref('\u7ba1\u7406\u5458')
+const avatarUrl = ref(DEFAULT_AVATAR)
 const collapsed = ref(false)
 const pwdDialogVisible = ref(false)
 const pwdForm = reactive({ oldpwd: '', newpwd: '', newpwd2: '' })
@@ -128,20 +149,17 @@ function loadLoginUserInfo() {
   axios.get('/loadInfo').then(res => {
     if (res.data?.realname) realName.value = res.data.realname
     else if (res.data?.uname) realName.value = res.data.uname
-    if (res.data?.image) {
-      avatarUrl.value = res.data.image
-      localStorage.setItem('zzyl_avatar', res.data.image)
-    }
+    if (res.data?.image) avatarUrl.value = res.data.image
   }).catch(() => {})
 }
 
 function updateUserPwd() {
   if (pwdForm.newpwd !== pwdForm.newpwd2) {
-    ElMessage.warning('两次新密码输入不一致')
+    ElMessage.warning('\u4e24\u6b21\u65b0\u5bc6\u7801\u8f93\u5165\u4e0d\u4e00\u81f4')
     return
   }
   axios.post('/updatePwd', pwdForm).then(res => {
-    ElMessage.success(res.data.msg || '修改成功')
+    ElMessage.success(res.data.msg || '\u4fee\u6539\u6210\u529f')
     if (res.data.code === 200) {
       pwdForm.oldpwd = ''
       pwdForm.newpwd = ''
@@ -176,3 +194,10 @@ function handleLogout() {
 .main-content { padding: 16px; }
 .page-footer { text-align: center; color: #999; font-size: 12px; padding: 12px; background: #f5f7fa; }
 </style>
+'''
+
+# decode unicode escapes in template for actual Chinese
+MAIN_INDEX = MAIN_INDEX.encode("utf-8").decode("unicode_escape")
+
+write("views/MainIndex.vue", MAIN_INDEX)
+print("MainIndex done")

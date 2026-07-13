@@ -43,6 +43,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         UserLineDto userLineDto = new UserLineDto();
         userLineDto.setId(user.getId());
         userLineDto.setRealname(user.getRealname());
+        userLineDto.setImage(user.getImage());
         session.setAttribute("online", userLineDto);
         result.put("code", 200);
         return result;
