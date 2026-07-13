@@ -3,6 +3,7 @@ package com.soft.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.soft.common.Result;
 import com.soft.dto.PageQueryDto;
+import com.soft.dto.UserLineDto;
 import com.soft.dto.WorkflowItemDto;
 import com.soft.mapper.CheckinMapper;
 import com.soft.mapper.CheckoutMapper;
@@ -10,6 +11,7 @@ import com.soft.mapper.LeaveMapper;
 import com.soft.pojo.Checkin;
 import com.soft.pojo.Checkout;
 import com.soft.pojo.Leave;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -32,18 +34,36 @@ public class CollaborationController {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    /**
+     * \u6211\u7684\u7533\u8bf7\uff1a\u4ec5\u8fd4\u56de\u5f53\u524d\u767b\u5f55\u7528\u6237\u53d1\u8d77\u7684\u5355\u636e\uff08\u4ee5 Session realname \u4e3a\u51c6\uff09\u3002
+     * \u524d\u7aef\u4f20\u5165\u7684 applicant \u4ec5\u4f5c\u4e8c\u6b21\u7b5b\u9009\uff0c\u4e0d\u80fd\u5192\u5145\u8eab\u4efd\u3002
+     */
     @PostMapping("/apply/page")
-    public Result<List<WorkflowItemDto>> applyPage(@RequestBody PageQueryDto q) {
-        List<WorkflowItemDto> all = loadAll(q);
+    public Result<List<WorkflowItemDto>> applyPage(@RequestBody PageQueryDto q, HttpSession session) {
+        String owner = resolveOnlineName(session);
+        if (!StringUtils.hasText(owner)) {
+            return pageSlice(new ArrayList<>(), q);
+        }
+        // \u4fdd\u7559\u524d\u7aef\u300c\u7533\u8bf7\u4eba\u300d\u641c\u7d22\u8bcd\uff0c\u4f46\u4e0d\u7528\u5b83\u505a\u8eab\u4efd\u8303\u56f4
+        String searchApplicant = q.getApplicant();
+        q.setApplicant(null);
+        List<WorkflowItemDto> all = loadAll(q, owner);
+        if (StringUtils.hasText(searchApplicant)) {
+            String kw = searchApplicant.trim();
+            all = all.stream()
+                    .filter(i -> i.getApplicant() != null && i.getApplicant().contains(kw))
+                    .collect(Collectors.toList());
+        }
         if (StringUtils.hasText(q.getStatus()) && !"\u5168\u90e8".equals(q.getStatus())) {
             all = all.stream().filter(i -> q.getStatus().equals(i.getFlowStatus())).collect(Collectors.toList());
         }
         return pageSlice(all, q);
     }
 
+    /** \u6211\u7684\u5f85\u529e\uff1a\u5168\u5458\u5171\u4eab\uff0c\u4e0d\u6309\u767b\u5f55\u8d26\u53f7\u8fc7\u6ee4 */
     @PostMapping("/todo/page")
     public Result<List<WorkflowItemDto>> todoPage(@RequestBody PageQueryDto q) {
-        List<WorkflowItemDto> all = loadAll(q);
+        List<WorkflowItemDto> all = loadAll(q, null);
         boolean processed = "\u5df2\u5904\u7406".equals(q.getStatus());
         all = all.stream().filter(i -> {
             boolean pending;
@@ -58,27 +78,44 @@ public class CollaborationController {
         return pageSlice(all, q);
     }
 
-    private List<WorkflowItemDto> loadAll(PageQueryDto q) {
+    private String resolveOnlineName(HttpSession session) {
+        if (session == null) return null;
+        Object online = session.getAttribute("online");
+        if (online instanceof UserLineDto dto && StringUtils.hasText(dto.getRealname())) {
+            return dto.getRealname().trim();
+        }
+        return null;
+    }
+
+    /**
+     * @param owner \u975e\u7a7a\u65f6\u4ec5\u52a0\u8f7d\u8be5\u7528\u6237\u53d1\u8d77\u7684\u5355\u636e\uff08applicant / creator\uff09\uff1b
+     *              \u4e3a null \u65f6\u4e0d\u6309\u7528\u6237\u8fc7\u6ee4\uff08\u5f85\u529e\u5171\u4eab\uff09\u3002
+     */
+    private List<WorkflowItemDto> loadAll(PageQueryDto q, String owner) {
         List<WorkflowItemDto> list = new ArrayList<>();
         String type = q.getType();
-        if (!StringUtils.hasText(type) || "\u5165\u4f4f".equals(type)) list.addAll(fromCheckin(q));
-        if (!StringUtils.hasText(type) || "\u9000\u4f4f".equals(type)) list.addAll(fromCheckout(q));
-        if (!StringUtils.hasText(type) || "\u8bf7\u5047".equals(type)) list.addAll(fromLeave(q));
+        if (!StringUtils.hasText(type) || "\u5165\u4f4f".equals(type)) list.addAll(fromCheckin(q, owner));
+        if (!StringUtils.hasText(type) || "\u9000\u4f4f".equals(type)) list.addAll(fromCheckout(q, owner));
+        if (!StringUtils.hasText(type) || "\u8bf7\u5047".equals(type)) list.addAll(fromLeave(q, owner));
         list.sort(Comparator.comparing(WorkflowItemDto::getApplyTime, Comparator.nullsLast(Comparator.reverseOrder())));
         return list;
     }
 
-    private List<WorkflowItemDto> fromCheckin(PageQueryDto q) {
+    private List<WorkflowItemDto> fromCheckin(PageQueryDto q, String owner) {
         LambdaQueryWrapper<Checkin> w = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(q.getDocNo())) w.like(Checkin::getDocNo, q.getDocNo());
-        if (StringUtils.hasText(q.getApplicant())) w.like(Checkin::getApplicant, q.getApplicant());
+        if (StringUtils.hasText(owner)) {
+            w.and(x -> x.eq(Checkin::getApplicant, owner).or().eq(Checkin::getCreator, owner));
+        } else if (StringUtils.hasText(q.getApplicant())) {
+            w.like(Checkin::getApplicant, q.getApplicant());
+        }
         return checkinMapper.selectList(w).stream().map(c -> {
             WorkflowItemDto d = new WorkflowItemDto();
             d.setId(c.getId());
             d.setDocNo(c.getDocNo());
             d.setTitle(c.getElderName() + "\u7684\u5165\u4f4f\u7533\u8bf7");
             d.setCategory("\u5165\u4f4f");
-            d.setApplicant(c.getApplicant());
+            d.setApplicant(displayApplicant(c.getApplicant(), c.getCreator()));
             d.setApplyTime(fmt(c.getApplyTime()));
             d.setFinishTime(fmt(c.getFinishTime()));
             d.setFlowStatus(c.getFlowStatus());
@@ -89,17 +126,21 @@ public class CollaborationController {
         }).collect(Collectors.toList());
     }
 
-    private List<WorkflowItemDto> fromCheckout(PageQueryDto q) {
+    private List<WorkflowItemDto> fromCheckout(PageQueryDto q, String owner) {
         LambdaQueryWrapper<Checkout> w = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(q.getDocNo())) w.like(Checkout::getDocNo, q.getDocNo());
-        if (StringUtils.hasText(q.getApplicant())) w.like(Checkout::getApplicant, q.getApplicant());
+        if (StringUtils.hasText(owner)) {
+            w.and(x -> x.eq(Checkout::getApplicant, owner).or().eq(Checkout::getCreator, owner));
+        } else if (StringUtils.hasText(q.getApplicant())) {
+            w.like(Checkout::getApplicant, q.getApplicant());
+        }
         return checkoutMapper.selectList(w).stream().map(c -> {
             WorkflowItemDto d = new WorkflowItemDto();
             d.setId(c.getId());
             d.setDocNo(c.getDocNo());
             d.setTitle(c.getElderName() + "\u7684\u9000\u4f4f\u7533\u8bf7");
             d.setCategory("\u9000\u4f4f");
-            d.setApplicant(c.getApplicant());
+            d.setApplicant(displayApplicant(c.getApplicant(), c.getCreator()));
             d.setApplyTime(fmt(c.getApplyTime()));
             d.setFinishTime("\u5df2\u5b8c\u6210".equals(c.getFlowStatus()) || "\u5df2\u5b8c\u6210".equals(c.getStepStatus())
                     ? fmt(c.getCreateTime()) : "\u2014");
@@ -111,17 +152,21 @@ public class CollaborationController {
         }).collect(Collectors.toList());
     }
 
-    private List<WorkflowItemDto> fromLeave(PageQueryDto q) {
+    private List<WorkflowItemDto> fromLeave(PageQueryDto q, String owner) {
         LambdaQueryWrapper<Leave> w = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(q.getDocNo())) w.like(Leave::getDocNo, q.getDocNo());
-        if (StringUtils.hasText(q.getApplicant())) w.like(Leave::getApplicant, q.getApplicant());
+        if (StringUtils.hasText(owner)) {
+            w.and(x -> x.eq(Leave::getApplicant, owner).or().eq(Leave::getCreator, owner));
+        } else if (StringUtils.hasText(q.getApplicant())) {
+            w.like(Leave::getApplicant, q.getApplicant());
+        }
         return leaveMapper.selectList(w).stream().map(c -> {
             WorkflowItemDto d = new WorkflowItemDto();
             d.setId(c.getId());
             d.setDocNo(c.getDocNo());
             d.setTitle(c.getElderName() + "\u7684\u8bf7\u5047\u7533\u8bf7");
             d.setCategory("\u8bf7\u5047");
-            d.setApplicant(c.getApplicant());
+            d.setApplicant(displayApplicant(c.getApplicant(), c.getCreator()));
             d.setApplyTime(fmt(c.getApplyTime()));
             d.setFinishTime("\u5df2\u8fd4\u56de".equals(c.getStatus()) ? fmt(c.getActualReturnTime()) : "\u2014");
             d.setFlowStatus(mapLeaveFlow(c.getStatus()));
@@ -130,6 +175,11 @@ public class CollaborationController {
             d.setBizType("leave");
             return d;
         }).collect(Collectors.toList());
+    }
+
+    private String displayApplicant(String applicant, String creator) {
+        if (StringUtils.hasText(applicant)) return applicant;
+        return StringUtils.hasText(creator) ? creator : null;
     }
 
     private String mapCheckoutFlow(Checkout c) {

@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.soft.common.Result;
 import com.soft.dto.PageQueryDto;
+import com.soft.dto.UserLineDto;
 import com.soft.mapper.LeaveMapper;
 import com.soft.pojo.Leave;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -41,7 +43,7 @@ public class LeaveController {
     }
 
     @PostMapping("/save")
-    public Result<String> save(@RequestBody Leave leave) {
+    public Result<String> save(@RequestBody Leave leave, HttpSession session) {
         if (leave.getId() == null) {
             if (!StringUtils.hasText(leave.getElderName()) || !StringUtils.hasText(leave.getElderIdcard())) {
                 return Result.fail("\u8bf7\u9009\u62e9\u8001\u4eba");
@@ -63,11 +65,26 @@ public class LeaveController {
                 leave.setLeaveDays((int) Math.max(1, days));
             }
             if (!StringUtils.hasText(leave.getEscort())) leave.setEscort("\u65e0");
+            fillApplicantFromSession(leave, session);
             leaveMapper.insert(leave);
         } else {
             leaveMapper.updateById(leave);
         }
         return Result.ok("saved");
+    }
+
+    /** \u4ece Session \u8865\u5168 applicant/creator\uff08\u4e0e\u767b\u5f55 realname \u4e00\u81f4\uff09 */
+    private void fillApplicantFromSession(Leave leave, HttpSession session) {
+        String name = null;
+        if (session != null) {
+            Object online = session.getAttribute("online");
+            if (online instanceof UserLineDto dto && StringUtils.hasText(dto.getRealname())) {
+                name = dto.getRealname().trim();
+            }
+        }
+        if (!StringUtils.hasText(name)) return;
+        if (!StringUtils.hasText(leave.getApplicant())) leave.setApplicant(name);
+        if (!StringUtils.hasText(leave.getCreator())) leave.setCreator(name);
     }
 
     @PostMapping("/approve")

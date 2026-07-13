@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.soft.common.Result;
 import com.soft.dto.PageQueryDto;
+import com.soft.dto.UserLineDto;
 import com.soft.mapper.CheckoutMapper;
 import com.soft.pojo.Checkout;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -40,7 +42,7 @@ public class CheckoutController {
     }
 
     @PostMapping("/save")
-    public Result<String> save(@RequestBody Checkout c) {
+    public Result<String> save(@RequestBody Checkout c, HttpSession session) {
         if (!StringUtils.hasText(c.getElderName()) || c.getCheckoutDate() == null || !StringUtils.hasText(c.getReason())) {
             return Result.fail("\u8bf7\u5b8c\u5584\u9000\u4f4f\u7533\u8bf7\u5fc5\u586b\u4fe1\u606f");
         }
@@ -51,13 +53,30 @@ public class CheckoutController {
             c.setFlowStatus("\u7533\u8bf7\u4e2d");
             c.setApplyTime(LocalDateTime.now());
             c.setCreateTime(LocalDateTime.now());
-            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("\u987e\u5ef7\u70ec");
-            if (!StringUtils.hasText(c.getCreator())) c.setCreator("\u987e\u5ef7\u70ec");
+            fillApplicantFromSession(c, session);
             checkoutMapper.insert(c);
             return Result.ok(String.valueOf(c.getId()));
         }
         checkoutMapper.updateById(c);
         return Result.ok(String.valueOf(c.getId()));
+    }
+
+    /** \u4ece Session \u8865\u5168 applicant/creator\uff08\u4e0e\u767b\u5f55 realname \u4e00\u81f4\uff09 */
+    private void fillApplicantFromSession(Checkout c, HttpSession session) {
+        String name = null;
+        if (session != null) {
+            Object online = session.getAttribute("online");
+            if (online instanceof UserLineDto dto && StringUtils.hasText(dto.getRealname())) {
+                name = dto.getRealname().trim();
+            }
+        }
+        if (StringUtils.hasText(name)) {
+            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant(name);
+            if (!StringUtils.hasText(c.getCreator())) c.setCreator(name);
+        } else {
+            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("\u987e\u5ef7\u70ec");
+            if (!StringUtils.hasText(c.getCreator())) c.setCreator("\u987e\u5ef7\u70ec");
+        }
     }
 
     @PostMapping("/updateStep")

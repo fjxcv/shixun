@@ -45,9 +45,9 @@
       </el-form>
 
       <div class="login-footer">
-        <el-link type="primary" :underline="false">忘记密码</el-link>
+        <el-link type="primary" :underline="false" @click="$router.push('/forgotPassword')">忘记密码</el-link>
         <span class="divider">|</span>
-        <el-link type="primary" :underline="false">注册账号</el-link>
+        <el-link type="primary" :underline="false" @click="$router.push('/register')">注册账号</el-link>
       </div>
     </div>
   </div>

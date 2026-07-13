@@ -1,5 +1,7 @@
 package com.soft.controller;
 
+import com.soft.dto.RegisterDto;
+import com.soft.dto.ResetPwdDto;
 import com.soft.dto.UserDto;
 import com.soft.service.UserService;
 import jakarta.servlet.http.HttpSession;
@@ -13,23 +15,28 @@ import java.util.Map;
 @RestController
 public class LoginController {
 
-
-
     @Autowired
     private UserService userService;
 
     @RequestMapping("/login")
-    public Map<String,Object> userLogin(
-            @RequestBody UserDto userDto
+    public Map<String, Object> userLogin(@RequestBody UserDto userDto, HttpSession session) {
+        return userService.queryUserService(userDto, session);
+    }
 
-            , HttpSession session){
-        return userService.queryUserService(userDto,session);
+    @RequestMapping("/register")
+    public Map<String, Object> register(@RequestBody RegisterDto registerDto) {
+        return userService.registerUserService(registerDto);
+    }
+
+    @RequestMapping("/resetPwd")
+    public Map<String, Object> resetPwd(@RequestBody ResetPwdDto resetPwdDto) {
+        return userService.resetPwdByAccountService(resetPwdDto);
     }
 
     @RequestMapping("/logout")
-    public Map<String,Object> logout(HttpSession session){
+    public Map<String, Object> logout(HttpSession session) {
         session.invalidate();
-        Map<String,Object> result = new java.util.HashMap<>();
+        Map<String, Object> result = new java.util.HashMap<>();
         result.put("code", 200);
         result.put("msg", "logout ok");
         return result;

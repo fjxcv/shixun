@@ -53,7 +53,7 @@ const defaultNodes = computed(() => {
         comment: ''
       },
       {
-        name: `（角色）处理-${prefix}审批`,
+        name: `护理组主管处理-${prefix}审批`,
         time: step >= 3 ? applyTime : '--',
         operator: step >= 3 ? '护理组主管（已处理）' : '待审批',
         status: step >= 3 ? '已处理' : '审批中',
@@ -73,7 +73,7 @@ const defaultNodes = computed(() => {
       comment: ''
     },
     {
-      name: `审批角色处理-${prefix}评估`,
+      name: `审批-${prefix}评估`,
       time: step >= 3 ? applyTime : '--',
       operator: step >= 3 ? '盛明兰' : '待审批',
       status: step >= 3 ? '已处理' : '审批中',
@@ -81,7 +81,7 @@ const defaultNodes = computed(() => {
       comment: ''
     },
     {
-      name: `审批角色处理-${prefix}配置`,
+      name: `审批-${prefix}配置`,
       time: step >= 4 ? applyTime : '--',
       operator: step >= 4 ? '盛明兰' : '待处理',
       status: step >= 4 ? '已处理' : '待处理',

@@ -24,6 +24,8 @@ module.exports = defineConfig({
     },
     proxy: {
       '/login': apiProxy,
+      '/register': apiProxy,
+      '/resetPwd': apiProxy,
       '/logout': apiProxy,
       '/loadInfo': apiProxy,
       '/showInfo': apiProxy,

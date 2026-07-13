@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.soft.common.Result;
 import com.soft.config.DemoDataFill;
 import com.soft.dto.PageQueryDto;
+import com.soft.dto.UserLineDto;
 import com.soft.mapper.CheckinMapper;
 import com.soft.pojo.Checkin;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -43,7 +45,7 @@ public class CheckinController {
     }
 
     @PostMapping("/save")
-    public Result<String> save(@RequestBody Checkin c) {
+    public Result<String> save(@RequestBody Checkin c, HttpSession session) {
         if (!StringUtils.hasText(c.getElderName()) || !StringUtils.hasText(c.getElderIdcard())
                 || !StringUtils.hasText(c.getElderPhone()) || !StringUtils.hasText(c.getAddress())) {
             return Result.fail("\u8bf7\u5b8c\u5584\u7533\u8bf7\u5fc5\u586b\u4fe1\u606f");
@@ -62,13 +64,30 @@ public class CheckinController {
             c.setApplyTime(LocalDateTime.now());
             c.setCreateTime(LocalDateTime.now());
             if (c.getCheckinDate() == null) c.setCheckinDate(java.time.LocalDate.now());
-            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("\u987e\u5ef7\u70ec");
-            if (!StringUtils.hasText(c.getCreator())) c.setCreator("\u987e\u5ef7\u70ec");
+            fillApplicantFromSession(c, session);
             checkinMapper.insert(c);
             return Result.ok(String.valueOf(c.getId()));
         }
         checkinMapper.updateById(c);
         return Result.ok(String.valueOf(c.getId()));
+    }
+
+    /** \u4ece Session \u8865\u5168 applicant/creator\uff08\u4e0e\u767b\u5f55 realname \u4e00\u81f4\uff09 */
+    private void fillApplicantFromSession(Checkin c, HttpSession session) {
+        String name = null;
+        if (session != null) {
+            Object online = session.getAttribute("online");
+            if (online instanceof UserLineDto dto && StringUtils.hasText(dto.getRealname())) {
+                name = dto.getRealname().trim();
+            }
+        }
+        if (StringUtils.hasText(name)) {
+            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant(name);
+            if (!StringUtils.hasText(c.getCreator())) c.setCreator(name);
+        } else {
+            if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("\u987e\u5ef7\u70ec");
+            if (!StringUtils.hasText(c.getCreator())) c.setCreator("\u987e\u5ef7\u70ec");
+        }
     }
 
     @PostMapping("/updateStep")
@@ -191,7 +210,7 @@ public class CheckinController {
         for (String bedNo : bedNos) {
             LambdaQueryWrapper<Checkin> w = new LambdaQueryWrapper<Checkin>()
                     .eq(Checkin::getBedNo, bedNo)
-                    .in(Checkin::getFlowStatus, "申请中", "已完成")
+                    .in(Checkin::getFlowStatus, "\u7533\u8bf7\u4e2d", "\u5df2\u5b8c\u6210")
                     .le(Checkin::getPeriodStart, endDate)
                     .ge(Checkin::getPeriodEnd, startDate);
             if (excludeId != null && excludeId.longValue() > 0) {

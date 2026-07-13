@@ -4,6 +4,8 @@ import MainIndex from '../views/MainIndex.vue'
 
 const routes = [
   { path: '/', name: 'home', component: HomeView },
+  { path: '/register', name: 'register', component: () => import('@/views/Register.vue') },
+  { path: '/forgotPassword', name: 'forgotPassword', component: () => import('@/views/ForgotPassword.vue') },
   {
     path: '/MainIndex',
     name: 'MainIndex',
