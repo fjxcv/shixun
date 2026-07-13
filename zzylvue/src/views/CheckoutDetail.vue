@@ -6,7 +6,7 @@
         <InfoSections :data="detail" show-terminate show-bill show-settlement />
         <div class="form-actions"><el-button @click="goBack">返回</el-button></div>
       </div>
-      <OperationTimeline class="detail-side" action-prefix="退住" />
+      <OperationTimeline class="detail-side" action-prefix="退住" :data="detail" />
     </div>
     <div v-else class="detail-layout">
       <div class="detail-main">
@@ -63,7 +63,7 @@
           <el-button type="primary" @click="submitCurrent">{{ step === 7 ? '完成清算' : '保存' }}</el-button>
         </div>
       </div>
-      <OperationTimeline class="detail-side" action-prefix="退住" />
+      <OperationTimeline class="detail-side" action-prefix="退住" :data="detail" />
     </div>
   </PageCard>
 </template>

@@ -1,38 +1,46 @@
 <template>
   <PageCard>
     <template #filter>
-      <el-form :inline="true" :model="query">
-        <el-form-item label="å•æ®ç¼–å·"><el-input v-model="query.docNo" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
-        <el-form-item label="è€äººå§“å"><el-input v-model="query.elderName" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
-        <el-form-item label="è€äººèº«ä»½è¯å·"><el-input v-model="query.elderIdcard" clearable placeholder="è¯·è¾“å…¥" /></el-form-item>
+      <el-form :inline="true" :model="query" class="filter-form">
+        <el-form-item label="µ¥¾İ±àºÅ"><el-input v-model="query.docNo" clearable placeholder="ÇëÊäÈë" /></el-form-item>
+        <el-form-item label="ÀÏÈËĞÕÃû"><el-input v-model="query.elderName" clearable placeholder="ÇëÊäÈë" /></el-form-item>
+        <el-form-item label="ÀÏÈËÉí·İÖ¤ºÅ"><el-input v-model="query.elderIdcard" clearable placeholder="ÇëÊäÈë" /></el-form-item>
+        <el-form-item label="Èë×¡ÈÕÆÚ">
+          <el-date-picker v-model="dateRange" type="daterange" value-format="YYYY-MM-DD"
+            range-separator="ÖÁ" start-placeholder="¿ªÊ¼ÈÕÆÚ" end-placeholder="½áÊøÈÕÆÚ"
+            style="width:240px" />
+        </el-form-item>
         <el-form-item>
-          <el-button @click="resetQuery">é‡ç½®</el-button>
-          <el-button type="primary" @click="loadList(1)">æœç´¢</el-button>
+          <el-button @click="resetQuery">ÖØÖÃ</el-button>
+          <el-button type="primary" @click="loadList(1)">ËÑË÷</el-button>
         </el-form-item>
       </el-form>
     </template>
     <template #toolbar>
       <span />
-      <el-button type="primary" @click="$router.push('/CheckinApply')">å‘èµ·å…¥ä½ç”³è¯·</el-button>
+      <el-button type="primary" @click="$router.push('/CheckinApply')">·¢ÆğÈë×¡ÉêÇë</el-button>
     </template>
     <el-table :data="tableData" border stripe>
-      <el-table-column type="index" label="åºå·" width="60" />
-      <el-table-column prop="docNo" label="å•æ®ç¼–å·" min-width="160" />
-      <el-table-column prop="elderName" label="è€äººå§“å" width="100" />
-      <el-table-column prop="elderIdcard" label="è€äººèº«ä»½è¯å·" min-width="170" />
-      <el-table-column prop="bedNo" label="å…¥ä½åºŠä½" width="100" />
-      <el-table-column prop="checkinDate" label="å…¥ä½æ—¥æœŸ" width="120" />
-      <el-table-column prop="flowStatus" label="æµç¨‹çŠ¶æ€" width="100" />
-      <el-table-column prop="creator" label="åˆ›å»ºäºº" width="90" />
-      <el-table-column prop="createTime" label="åˆ›å»ºæ—¶é—´" min-width="160" />
-      <el-table-column label="æ“ä½œ" width="80" fixed="right">
+      <el-table-column type="index" label="ĞòºÅ" width="60" />
+      <el-table-column prop="docNo" label="µ¥¾İ±àºÅ" min-width="160" />
+      <el-table-column prop="elderName" label="ÀÏÈËĞÕÃû" width="100" />
+      <el-table-column prop="elderIdcard" label="ÀÏÈËÉí·İÖ¤ºÅ" min-width="170" />
+      <el-table-column prop="bedNo" label="Èë×¡´²Î»" width="100" />
+      <el-table-column label="Èë×¡¿ªÊ¼ÈÕÆÚ" width="130">
+        <template #default="{ row }">{{ row.step >= 4 ? row.periodStart : '--' }}</template>
+      </el-table-column>
+      <el-table-column prop="checkinDate" label="Èë×¡ÈÕÆÚ" width="120" />
+      <el-table-column prop="flowStatus" label="Á÷³Ì×´Ì¬" width="100" />
+      <el-table-column prop="creator" label="´´½¨ÈË" width="90" />
+      <el-table-column prop="createTime" label="´´½¨Ê±¼ä" min-width="160" />
+      <el-table-column label="²Ù×÷" width="80" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="view(row)">æŸ¥çœ‹</el-button>
+          <el-button link type="primary" @click="view(row)">²é¿´</el-button>
         </template>
       </el-table-column>
     </el-table>
     <template #footer>
-      <span>å…± {{ total }} é¡¹æ•°æ®</span>
+      <span>¹² {{ total }} ÏîÊı¾İ</span>
       <el-pagination background layout="sizes, prev, pager, next, jumper" :total="total"
         v-model:current-page="query.pageNum" v-model:page-size="query.pageSize"
         @current-change="loadList" @size-change="loadList(1)" />
@@ -41,20 +49,24 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onActivated, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import PageCard from '@/components/PageCard.vue'
 
 const router = useRouter()
-const query = reactive({ pageNum: 1, pageSize: 10, docNo: '', elderName: '', elderIdcard: '' })
+const query = reactive({ pageNum: 1, pageSize: 10, docNo: '', elderName: '', elderIdcard: '', startTime: '', endTime: '' })
+const dateRange = ref([])
 const tableData = ref([])
 const total = ref(0)
 
 onMounted(() => loadList(1))
+onActivated(() => loadList(1))
 
 function loadList(page) {
   query.pageNum = page || query.pageNum
+  query.startTime = dateRange.value?.[0] || ''
+  query.endTime = dateRange.value?.[1] || ''
   axios.post('/checkin/page', query).then(res => {
     if (res.data.code === 200) {
       tableData.value = res.data.data || []
@@ -64,7 +76,8 @@ function loadList(page) {
 }
 
 function resetQuery() {
-  Object.assign(query, { docNo: '', elderName: '', elderIdcard: '' })
+  Object.assign(query, { docNo: '', elderName: '', elderIdcard: '', startTime: '', endTime: '' })
+  dateRange.value = []
   loadList(1)
 }
 
@@ -72,3 +85,12 @@ function view(row) {
   router.push({ path: '/CheckinDetail', query: { id: row.id, step: row.step || 2, mode: 'form' } })
 }
 </script>
+
+<style scoped>
+.filter-form {
+  text-align: left;
+}
+.filter-form :deep(.el-form-item) {
+  margin-right: 16px;
+}
+</style>

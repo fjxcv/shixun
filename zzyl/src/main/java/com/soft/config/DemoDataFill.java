@@ -64,8 +64,18 @@ public final class DemoDataFill {
         if (c.getBedFee() == null) c.setBedFee(new BigDecimal("800"));
         if (c.getStep() == null) c.setStep(1);
         if (!StringUtils.hasText(c.getFlowStatus())) c.setFlowStatus("\u7533\u8bf7\u4e2d");
+        if (!StringUtils.hasText(c.getEthnicity())) c.setEthnicity("\u6c49\u65cf");
+        if (!StringUtils.hasText(c.getPoliticalStatus())) c.setPoliticalStatus("\u7fa4\u4f17");
+        if (!StringUtils.hasText(c.getReligion())) c.setReligion("\u4f5b\u6559");
+        if (!StringUtils.hasText(c.getMaritalStatus())) c.setMaritalStatus("\u5df2\u5a5a");
+        if (!StringUtils.hasText(c.getEducationLevel())) c.setEducationLevel("\u5927\u4e13");
+        if (!StringUtils.hasText(c.getIncomeSource())) c.setIncomeSource("\u9000\u4f11\u91d1");
+        if (!StringUtils.hasText(c.getMedicalInsurance())) c.setMedicalInsurance("\u57ce\u9547\u804c\u5de5\u57fa\u672c\u533b\u7597\u4fdd\u9669");
+        if (!StringUtils.hasText(c.getHobbies())) c.setHobbies("\u4e0b\u68cb\u3001\u5531\u6b4c");
+        if (!StringUtils.hasText(c.getMedicalInsuranceNo())) c.setMedicalInsuranceNo("");
         if (!StringUtils.hasText(c.getApplicant())) c.setApplicant("\u987e\u5ef7\u70ec");
         if (c.getApplyTime() == null) c.setApplyTime(LocalDateTime.of(2048, 10, 10, 15, 0));
+        if (c.getCreateTime() == null) c.setCreateTime(LocalDateTime.of(2048, 10, 10, 15, 0));
         if (!StringUtils.hasText(c.getContractNo())) c.setContractNo("HT2048101015000001");
         if (!StringUtils.hasText(c.getContractName())) c.setContractName("\u9ad8\u542f\u5f3a\u8bd5\u4f4f\u5408\u540c");
         if (c.getSignDate() == null) c.setSignDate(LocalDate.of(2048, 10, 10));

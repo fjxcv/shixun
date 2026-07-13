@@ -1,15 +1,23 @@
 <template>
   <div class="timeline">
-    <h4 v-if="showTitle">æ“ä½œè®°å½•</h4>
+    <h4 v-if="showTitle">²Ù×÷¼ÇÂ¼</h4>
     <el-timeline>
-      <el-timeline-item :timestamp="applyTime" placement="top" type="success">
-        <p>å‘èµ·ç”³è¯·-ç”³è¯·{{ actionPrefix }}</p>
-        <p class="sub">{{ applicant }}ï¼ˆå·²å‘èµ·ï¼‰</p>
-      </el-timeline-item>
-      <el-timeline-item v-if="step >= 2" :timestamp="applyTime" placement="top" type="primary">
-        <p>ï¼ˆè§’è‰²ï¼‰å¤„ç†-{{ actionPrefix }}è¯„ä¼°/å®¡æ‰¹</p>
-        <p class="sub">æŠ¤ç†ç»„ä¸»ç®¡ï¼ˆå·²å¤„ç†ï¼‰</p>
-        <div v-if="comment" class="comment">{{ comment }}</div>
+      <el-timeline-item
+        v-for="(node, i) in displayNodes"
+        :key="i"
+        :timestamp="node.time"
+        placement="top"
+        :type="node.type"
+      >
+        <p>{{ node.name }}</p>
+        <p class="sub">
+          {{ node.operator }}
+          <el-tag v-if="node.status === 'ÉóÅúÖĞ'" size="small" type="warning" class="status-tag">ÉóÅúÖĞ</el-tag>
+          <el-tag v-else-if="node.status === 'ÒÑ´¦Àí'" size="small" type="success" class="status-tag">ÒÑ´¦Àí</el-tag>
+          <el-tag v-else-if="node.status === 'ÒÑ·¢Æğ'" size="small" type="info" class="status-tag">ÒÑ·¢Æğ</el-tag>
+          <el-tag v-else-if="node.status === 'ÒÑÍê³É'" size="small" type="success" class="status-tag">ÒÑÍê³É</el-tag>
+        </p>
+        <div v-if="node.comment" class="comment">{{ node.comment }}</div>
       </el-timeline-item>
     </el-timeline>
   </div>
@@ -20,18 +28,83 @@ import { computed } from 'vue'
 
 const props = defineProps({
   showTitle: { type: Boolean, default: true },
-  actionPrefix: { type: String, default: 'é€€ä½' },
+  actionPrefix: { type: String, default: 'ÍË×¡' },
+  currentStep: { type: Number, default: 1 },
+  nodes: { type: Array, default: null },
   data: { type: Object, default: () => ({}) }
 })
 
-const step = computed(() => props.data?.step || 1)
-const applicant = computed(() => props.data?.applicant || props.data?.creator || 'ç”³è¯·äºº')
-const applyTime = computed(() => props.data?.applyTime || props.data?.createTime || '')
-const comment = computed(() => props.data?.approvalComment || '')
+const defaultNodes = computed(() => {
+  const prefix = props.actionPrefix
+  const d = props.data || {}
+  const step = d.step || props.currentStep || 1
+  const applicant = d.applicant || d.creator || 'ÉêÇëÈË'
+  const applyTime = d.applyTime || d.createTime || '--'
+  const comment = d.approvalComment || ''
+
+  if (prefix === 'ÍË×¡') {
+    return [
+      {
+        name: `·¢ÆğÉêÇë-ÉêÇë${prefix}`,
+        time: applyTime,
+        operator: `${applicant}£¨ÒÑ·¢Æğ£©`,
+        status: 'ÒÑ·¢Æğ',
+        type: 'success',
+        comment: ''
+      },
+      {
+        name: `£¨½ÇÉ«£©´¦Àí-${prefix}ÉóÅú`,
+        time: step >= 3 ? applyTime : '--',
+        operator: step >= 3 ? '»¤Àí×éÖ÷¹Ü£¨ÒÑ´¦Àí£©' : '´ıÉóÅú',
+        status: step >= 3 ? 'ÒÑ´¦Àí' : 'ÉóÅúÖĞ',
+        type: step >= 3 ? 'primary' : 'warning',
+        comment: step >= 2 ? comment : ''
+      }
+    ]
+  }
+
+  return [
+    {
+      name: `·¢ÆğÉêÇë-ÉêÇë${prefix}`,
+      time: applyTime,
+      operator: applicant,
+      status: 'ÒÑ·¢Æğ',
+      type: 'success',
+      comment: ''
+    },
+    {
+      name: `ÉóÅú½ÇÉ«´¦Àí-${prefix}ÆÀ¹À`,
+      time: step >= 3 ? applyTime : '--',
+      operator: step >= 3 ? 'Ê¢Ã÷À¼' : '´ıÉóÅú',
+      status: step >= 3 ? 'ÒÑ´¦Àí' : 'ÉóÅúÖĞ',
+      type: step >= 3 ? 'primary' : 'warning',
+      comment: ''
+    },
+    {
+      name: `ÉóÅú½ÇÉ«´¦Àí-${prefix}ÅäÖÃ`,
+      time: step >= 4 ? applyTime : '--',
+      operator: step >= 4 ? 'Ê¢Ã÷À¼' : '´ı´¦Àí',
+      status: step >= 4 ? 'ÒÑ´¦Àí' : '´ı´¦Àí',
+      type: step >= 4 ? 'primary' : 'info',
+      comment: ''
+    },
+    {
+      name: 'Íê³ÉÇ©Ô¼°ìÀí',
+      time: step >= 5 ? applyTime : '--',
+      operator: step >= 5 ? applicant : '´ı´¦Àí',
+      status: step >= 5 ? 'ÒÑ´¦Àí' : '´ı´¦Àí',
+      type: step >= 5 ? 'success' : 'info',
+      comment: ''
+    }
+  ]
+})
+
+const displayNodes = computed(() => props.nodes || defaultNodes.value)
 </script>
 
 <style scoped>
 .timeline h4 { margin: 0 0 12px; }
-.sub { color: #666; font-size: 13px; margin: 4px 0; }
+.sub { color: #666; font-size: 13px; margin: 4px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.status-tag { font-size: 11px; }
 .comment { background: #f5f5f5; padding: 8px; border-radius: 4px; color: #999; font-size: 13px; margin-top: 8px; }
 </style>
